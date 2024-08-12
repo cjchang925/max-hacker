@@ -35,11 +35,12 @@ export class MaxRestApi {
    * 掛單
    * @param price 掛單的價格
    * @param volume 掛單的數量，預設為 0.0002
+   * @returns 掛單編號
    */
   public placeOrder = async (
     price: string,
     volume: string = "0.0002"
-  ): Promise<void> => {
+  ): Promise<number> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 
     const request = {
@@ -94,6 +95,8 @@ export class MaxRestApi {
     };
 
     log(`掛單成功，訂單編號：${newOrder.id}`);
+
+    return newOrder.id;
   };
 
   /**

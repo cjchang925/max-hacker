@@ -39,6 +39,16 @@ class Frederick {
   private maxActiveOrders: MaxOrder[] = [];
 
   /**
+   * 記錄掛單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
+   */
+  private ordersInitialOutOfRangeMap: Map<number, boolean> = new Map();
+
+  /**
+   * 正在撤銷的掛單編號集合，避免重複撤單卡住程式執行
+   */
+  private cancellingOrderSet: Set<number> = new Set();
+
+  /**
    * MAX 掛單與撤單狀態
    */
   private maxState: MaxState = MaxState.DEFAULT;
@@ -97,6 +107,12 @@ class Frederick {
         }
 
         this.maxActiveOrders.splice(orderIndex, 1);
+
+        // 從正在撤銷的掛單編號集合中移除
+        this.cancellingOrderSet.delete(id);
+
+        // 從掛單初始範圍記錄中移除
+        this.ordersInitialOutOfRangeMap.delete(id);
 
         // 將 maxState 改為預設以便掛新單
         this.maxState = MaxState.DEFAULT;
@@ -187,15 +203,24 @@ class Frederick {
     // 取得 MAX 最佳買價
     const maxBestBid = this.maxWs.getBestBid();
 
+    // 是否在掛單時就已經受掛單簿影響而使價格超出套利區間
+    let isInitialOutOfRange = false;
+
     // 如果最佳買價比理想掛單價格還高，則將理想掛單價格設為最佳買價 + 0.01
     if (maxBestBid >= maxIdealSellPrice) {
       log("MAX best bid 比理想掛單價格還高，調整掛單價格");
       maxIdealSellPrice = maxBestBid + 0.01;
+      isInitialOutOfRange = true;
     }
 
     // 掛單
     try {
-      await this.maxRestApi.placeOrder(maxIdealSellPrice.toString());
+      const orderId = await this.maxRestApi.placeOrder(
+        maxIdealSellPrice.toString()
+      );
+
+      // 紀錄訂單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
+      this.ordersInitialOutOfRangeMap.set(orderId, isInitialOutOfRange);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
     }
@@ -214,13 +239,35 @@ class Frederick {
     const minPrice = price * 1.0016;
     const maxPrice = price * 1.0018;
 
-    const maxInvalidOrders = this.maxActiveOrders.filter(
-      (order) => +order.price < minPrice || +order.price > maxPrice
-    );
+    const maxInvalidOrders = [];
 
-    const maxValidOrders = this.maxActiveOrders.filter(
-      (order) => +order.price >= minPrice && +order.price <= maxPrice
-    );
+    for (const order of this.maxActiveOrders) {
+      // 如果此訂單正在撤銷，無需判斷撤單條件
+      if (this.cancellingOrderSet.has(order.id)) {
+        continue;
+      }
+
+      // 如果一開始掛單是在套利區間內且現在價格超出套利區間，就需撤單
+      if (
+        (+order.price < minPrice || +order.price > maxPrice) &&
+        !this.ordersInitialOutOfRangeMap.get(order.id)
+      ) {
+        maxInvalidOrders.push(order);
+        continue;
+      }
+
+      // 如果一開始掛單是在套利區間內，表示現在依然如此，不需撤單
+      if (!this.ordersInitialOutOfRangeMap.get(order.id)) {
+        continue;
+      }
+
+      // 如果一開始掛單是在套利區間外且現在 best bid 比掛單價格還低超過 0.01，就需撤單
+      const maxBestBid = this.maxWs.getBestBid();
+
+      if (maxBestBid < +order.price - 0.01) {
+        maxInvalidOrders.push(order);
+      }
+    }
 
     if (maxInvalidOrders.length) {
       this.maxState = MaxState.PENDING_CANCEL_ORDER;
@@ -229,6 +276,7 @@ class Frederick {
         log(
           `現有掛單價格 ${order.price} 超過套利區間 ${minPrice} ~ ${maxPrice}，撤銷掛單`
         );
+        this.cancellingOrderSet.add(order.id);
         await this.maxRestApi.cancelOrder(order.id);
       }
 

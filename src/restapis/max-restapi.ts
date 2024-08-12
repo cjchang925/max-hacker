@@ -94,8 +94,6 @@ export class MaxRestApi {
       remainingVolume: response.remaining_volume!,
     };
 
-    log(`掛單成功，訂單編號：${newOrder.id}`);
-
     return newOrder.id;
   };
 
@@ -144,7 +142,5 @@ export class MaxRestApi {
     if (response.success === false) {
       throw new Error(response.error?.message);
     }
-
-    log(`撤單成功，訂單編號：${id}`);
   };
 }

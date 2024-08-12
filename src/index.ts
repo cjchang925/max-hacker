@@ -98,6 +98,8 @@ class Frederick {
         // 收到撤單訊息，將已撤銷的掛單從有效掛單紀錄中移除
         const id = order.i;
 
+        log(`撤單成功，訂單編號 ${id}`);
+
         const orderIndex = this.maxActiveOrders.findIndex(
           (order) => order.id === id
         );
@@ -130,6 +132,8 @@ class Frederick {
             volume: order.v,
             remainingVolume: order.rv,
           });
+
+          log(`掛單成功，訂單編號 ${order.i}`);
 
           // 將 maxState 改為預設
           this.maxState = MaxState.DEFAULT;
@@ -274,7 +278,7 @@ class Frederick {
 
       for (const order of maxInvalidOrders) {
         log(
-          `現有掛單價格 ${order.price} 超過套利區間 ${minPrice} ~ ${maxPrice}，撤銷掛單`
+          `現有掛單價格 ${order.price} 超過套利區間 ${minPrice.toFixed(3)} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
         await this.maxRestApi.cancelOrder(order.id);

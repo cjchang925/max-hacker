@@ -1,0 +1,29 @@
+{
+  "name": "maxhacker",
+  "version": "1.0.0",
+  "description": "Move bricks between MAX and Binance",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Frederick Chang",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "@types/qs": "^6.9.15",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^2.1.0",
+    "@types/ws": "^8.5.12",
+    "dotenv": "^16.4.5",
+    "moment": "^2.30.1",
+    "qs": "^6.13.0",
+    "ts-node": "^10.9.2",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "ws": "^8.18.0"
+  }
+}

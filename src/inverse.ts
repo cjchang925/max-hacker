@@ -324,7 +324,7 @@ class Frederick {
           )} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
-        await this.maxRestApi.cancelOrder(order.id);
+        await this.maxRestApi.cancelOrder(order.id, "buy");
       }
 
       this.maxState = MaxState.DEFAULT;

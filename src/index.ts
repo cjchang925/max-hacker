@@ -49,6 +49,11 @@ class Frederick {
   private cancellingOrderSet: Set<number> = new Set();
 
   /**
+   * 所有掛單編號集合，避免掛單又撤單後，三秒的等待時間過去又記錄掛單成功
+   */
+  private orderIdSet: Set<number> = new Set();
+
+  /**
    * MAX 掛單與撤單狀態
    */
   private maxState: MaxState = MaxState.DEFAULT;
@@ -125,7 +130,7 @@ class Frederick {
       if (order.S === "wait") {
         if (order.v === order.rv) {
           // 如果已有掛單紀錄就不再重複加入
-          if (this.maxActiveOrders.some((order_) => order_.id === order.i)) {
+          if (this.orderIdSet.has(order.i)) {
             continue;
           }
 
@@ -137,6 +142,8 @@ class Frederick {
             volume: order.v,
             remainingVolume: order.rv,
           });
+
+          this.orderIdSet.add(order.i);
 
           log(`掛單成功，訂單編號 ${order.i}`);
 
@@ -231,19 +238,20 @@ class Frederick {
       // 紀錄訂單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
       this.ordersInitialOutOfRangeMap.set(order.id, isInitialOutOfRange);
 
-      // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以五秒後仍未收到掛單訊息就認定掛單成功
+      // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以三秒後仍未收到掛單訊息就認定掛單成功
       setTimeout(() => {
         if (
           this.maxState === MaxState.PENDING_PLACE_ORDER &&
-          !this.maxActiveOrders.some((order) => order.id === order.id)
+          !this.orderIdSet.has(order.id)
         ) {
           this.maxActiveOrders.push(order);
+          this.orderIdSet.add(order.id);
 
-          log(`五秒後仍未收到掛單訊息，系統認定掛單成功，訂單編號 ${order.id}`);
+          log(`三秒後仍未收到掛單訊息，系統認定掛單成功，訂單編號 ${order.id}`);
 
           this.maxState = MaxState.DEFAULT;
         }
-      }, 5000);
+      }, 3000);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
     }

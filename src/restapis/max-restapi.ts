@@ -35,17 +35,19 @@ export class MaxRestApi {
    * 掛單
    * @param price 掛單的價格
    * @param volume 掛單的數量，預設為 0.0002
+   * @param side "buy" 表示買進, "sell" 表示賣出
    * @returns 掛單編號
    */
   public placeOrder = async (
     price: string,
+    side: string,
     volume: string = "0.0002"
   ): Promise<MaxOrder> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 
     const request = {
       market: "btcusdt",
-      side: "sell",
+      side,
       volume, // Precision: 6
       price,
       ord_type: "limit",

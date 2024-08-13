@@ -24,6 +24,11 @@ export class MaxWs {
    */
   private maxBestBid: number | null = null;
 
+  /**
+   * MAX 最佳賣價
+   */
+  private maxBestAsk: number | null = null;
+
   constructor() {
     dotenv.config();
 
@@ -62,6 +67,18 @@ export class MaxWs {
 
     return this.maxBestBid;
   };
+
+  /**
+   * 取得 MAX 最佳賣價
+   * @returns MAX 最佳賣價
+   */
+  public getBestAsk = (): number => {
+    if (this.maxBestAsk === null) {
+      throw new Error("MAX 最佳賣價尚未取得");
+    }
+
+    return this.maxBestAsk;
+  }
 
   /**
    * 連上 WebSocket server
@@ -138,6 +155,15 @@ export class MaxWs {
       if (book.e === "snapshot") {
         this.maxBestBid = parseFloat(book.b[0][0]);
         return;
+      }
+
+      if (book.e === "update" && book.a.length) {
+        for (const ask of book.a) {
+          const volume = parseFloat(ask[1]);
+          if (volume !== 0) {
+            this.maxBestAsk = parseFloat(ask[0]);
+          }
+        }
       }
 
       if (book.e === "update" && book.b.length) {

@@ -171,7 +171,7 @@ class Frederick {
           parseFloat(order.v) - parseFloat(order.rv)
         ).toString();
 
-        this.binanceApiWs.placeMarketOrder(executedVolume, "BUY");
+        this.binanceApiWs.placeMarketOrder(executedVolume, "SELL");
       }
 
       if (order.S === "done") {
@@ -188,7 +188,7 @@ class Frederick {
 
         this.maxActiveOrders.splice(orderIndex, 1);
         const volume = order.v;
-        this.binanceApiWs.placeMarketOrder(volume, "BUY");
+        this.binanceApiWs.placeMarketOrder(volume, "SELL");
       }
     }
   };
@@ -213,27 +213,27 @@ class Frederick {
     // 將狀態改為等待掛單，避免幣安價格變化時重複掛單
     this.maxState = MaxState.PENDING_PLACE_ORDER;
 
-    // 計算 MAX 理想掛單價格，也就是幣安最新價格上方 0.17%
-    let maxIdealSellPrice = parseFloat((price * 1.0017).toFixed(2));
+    // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.17%
+    let maxIdealBuyPrice = parseFloat((price * 0.9983).toFixed(2));
 
     // 取得 MAX 最佳買價
-    const maxBestBid = this.maxWs.getBestBid();
+    const maxBestAsk = this.maxWs.getBestAsk();
 
     // 是否在掛單時就已經受掛單簿影響而使價格超出套利區間
     let isInitialOutOfRange = false;
 
-    // 如果最佳買價比理想掛單價格還高，則將理想掛單價格設為最佳買價 + 0.01
-    if (maxBestBid >= maxIdealSellPrice) {
-      log("MAX best bid 比理想掛單價格還高，調整掛單價格");
-      maxIdealSellPrice = maxBestBid + 0.01;
+    // 如果最佳賣價比理想掛單價格還低，則將理想掛單價格設為最佳賣價 - 0.01
+    if (maxBestAsk <= maxIdealBuyPrice) {
+      log("MAX best ask 比理想掛單價格還低，調整掛單價格");
+      maxIdealBuyPrice = maxBestAsk - 0.01;
       isInitialOutOfRange = true;
     }
 
     // 掛單
     try {
       const order = await this.maxRestApi.placeOrder(
-        maxIdealSellPrice.toString(),
-        "sell"
+        maxIdealBuyPrice.toString(),
+        "buy"
       );
 
       // 紀錄訂單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
@@ -260,7 +260,7 @@ class Frederick {
 
   /**
    * 處理 MAX 訂單簿上的掛單，撤銷價格超出套利區間的單子
-   * 套利區間：幣安價格上方 0.16% ~ 0.18%
+   * 套利區間：幣安價格下方 0.16% ~ 0.18%
    * @param price 幣安最新價格
    */
   private processActiveOrders = async (price: number): Promise<void> => {
@@ -268,8 +268,8 @@ class Frederick {
       return;
     }
 
-    const minPrice = price * 1.0016;
-    const maxPrice = price * 1.0018;
+    const minPrice = price * 0.9982;
+    const maxPrice = price * 0.9984;
 
     const maxInvalidOrders = [];
 
@@ -293,10 +293,10 @@ class Frederick {
         continue;
       }
 
-      // 如果一開始掛單是在套利區間外且現在 best bid 比掛單價格還低超過 0.01，就需撤單
-      const maxBestBid = this.maxWs.getBestBid();
+      // 如果一開始掛單是在套利區間外且現在 best ask 比掛單價格還高超過 0.01，就需撤單
+      const maxBestAsk = this.maxWs.getBestAsk();
 
-      if (maxBestBid < +order.price - 0.01) {
+      if (maxBestAsk > +order.price + 0.01) {
         maxInvalidOrders.push(order);
       }
     }

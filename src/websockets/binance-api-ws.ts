@@ -44,7 +44,7 @@ export class BinanceApiWs {
       }
 
       if (response.id === "frederick-market-order") {
-        log("幣安市價單買進成功");
+        log("幣安市價單交易成功");
         log(`完成一次 XEMM 測試`);
         process.exit(0);
       }
@@ -80,9 +80,10 @@ export class BinanceApiWs {
   /**
    * 市價買進。市價單的數量需包含實際買進數量與手續費，因此下單的量會和參數的 volume 有些微不同
    * @param volume 買進數量，不包含手續費
+   * @param side "BUY" 表示買進, "SELL" 表示賣出
    */
-  public placeMarketOrder = (volume: string): void => {
-    log(`開始在幣安以市價單買進 ${volume} BTC`);
+  public placeMarketOrder = (volume: string, side: string): void => {
+    log(`開始在幣安以市價單 ${side} ${volume} BTC`);
 
     // 市價單買進時，需要在數量上加上 0.1% 的手續費
     const volumeWithFee = (parseFloat(volume) * 1.001).toString();
@@ -91,7 +92,7 @@ export class BinanceApiWs {
 
     const params: Record<string, string> = {
       symbol: "BTCUSDT",
-      side: "BUY",
+      side,
       type: "MARKET",
       quantity: volumeWithFee,
       timestamp: Date.now().toString(),

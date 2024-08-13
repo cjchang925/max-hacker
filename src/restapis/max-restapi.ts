@@ -110,9 +110,13 @@ export class MaxRestApi {
   public cancelOrder = async (id: number): Promise<void> => {
     log(`開始撤單，訂單編號：${id}`);
 
+    const nonce = Date.now().toString();
+
+    log(`nonce: ${nonce}`);
+
     const request = {
       id,
-      nonce: Date.now(),
+      nonce,
     };
 
     const paramsToBeSigned = {

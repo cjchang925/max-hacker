@@ -99,19 +99,20 @@ class Frederick {
    */
   public maxOrderUpdateCallback = (orderMessage: MaxOrderMessage): void => {
     for (const order of orderMessage.o) {
+      const id = order.i;
+
+      const orderIndex = this.maxActiveOrders.findIndex(
+        (order) => order.id === id
+      );
+
+      if (orderIndex === -1) {
+        // 表示是反向 XEMM 的撤單訊息，不需處理
+        return;
+      }
+
+      // 收到撤單訊息，將已撤銷的掛單從有效掛單紀錄中移除
       if (order.S === "cancel") {
-        // 收到撤單訊息，將已撤銷的掛單從有效掛單紀錄中移除
-        const id = order.i;
-
         log(`撤單成功，訂單編號 ${id}`);
-
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        if (orderIndex === -1) {
-          throw new Error(`找不到訂單編號 ${id}`);
-        }
 
         this.maxActiveOrders.splice(orderIndex, 1);
 
@@ -154,16 +155,6 @@ class Frederick {
         }
 
         // 掛單部分成交，更新有效掛單紀錄
-        const id = order.i;
-
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        if (orderIndex === -1) {
-          throw new Error(`找不到訂單編號 ${id}`);
-        }
-
         this.maxActiveOrders[orderIndex].remainingVolume = order.rv;
 
         // MAX 已成交數量
@@ -176,16 +167,6 @@ class Frederick {
 
       if (order.S === "done") {
         // 訂單已成交，在有效掛單紀錄中移除
-        const id = order.i;
-
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        if (orderIndex === -1) {
-          throw new Error(`找不到訂單編號 ${id}`);
-        }
-
         this.maxActiveOrders.splice(orderIndex, 1);
         const volume = order.v;
         this.binanceApiWs.placeMarketOrder(volume, "BUY");

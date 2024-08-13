@@ -45,13 +45,17 @@ export class MaxRestApi {
   ): Promise<MaxOrder> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 
+    const nonce = Date.now().toString();
+
+    log(`nonce: ${nonce}`);
+
     const request = {
       market: "btcusdt",
       side,
       volume, // Precision: 6
       price,
       ord_type: "limit",
-      nonce: Date.now().toString(),
+      nonce,
     };
 
     const paramsToBeSigned = {

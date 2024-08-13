@@ -153,6 +153,7 @@ export class MaxWs {
       }
 
       if (book.e === "snapshot") {
+        this.maxBestAsk = parseFloat(book.a[0][0]);
         this.maxBestBid = parseFloat(book.b[0][0]);
         return;
       }

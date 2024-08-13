@@ -40,7 +40,7 @@ export class MaxRestApi {
   public placeOrder = async (
     price: string,
     volume: string = "0.0002"
-  ): Promise<number> => {
+  ): Promise<MaxOrder> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 
     const request = {
@@ -94,7 +94,7 @@ export class MaxRestApi {
       remainingVolume: response.remaining_volume!,
     };
 
-    return newOrder.id;
+    return newOrder;
   };
 
   /**

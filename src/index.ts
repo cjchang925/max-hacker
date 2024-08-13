@@ -124,6 +124,11 @@ class Frederick {
 
       if (order.S === "wait") {
         if (order.v === order.rv) {
+          // 如果已有掛單紀錄就不再重複加入
+          if (this.maxActiveOrders.some((order_) => order_.id === order.i)) {
+            continue;
+          }
+
           // 新掛單訊息，將新掛單加入有效掛單紀錄
           this.maxActiveOrders.push({
             id: order.i,
@@ -219,12 +224,26 @@ class Frederick {
 
     // 掛單
     try {
-      const orderId = await this.maxRestApi.placeOrder(
+      const order = await this.maxRestApi.placeOrder(
         maxIdealSellPrice.toString()
       );
 
       // 紀錄訂單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
-      this.ordersInitialOutOfRangeMap.set(orderId, isInitialOutOfRange);
+      this.ordersInitialOutOfRangeMap.set(order.id, isInitialOutOfRange);
+
+      // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以五秒後仍未收到掛單訊息就認定掛單成功
+      setTimeout(() => {
+        if (
+          this.maxState === MaxState.PENDING_PLACE_ORDER &&
+          !this.maxActiveOrders.some((order) => order.id === order.id)
+        ) {
+          this.maxActiveOrders.push(order);
+
+          log(`五秒後仍未收到掛單訊息，系統認定掛單成功，訂單編號 ${order.id}`);
+
+          this.maxState = MaxState.DEFAULT;
+        }
+      }, 5000);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
     }
@@ -278,7 +297,9 @@ class Frederick {
 
       for (const order of maxInvalidOrders) {
         log(
-          `現有掛單價格 ${order.price} 超過套利區間 ${minPrice.toFixed(3)} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
+          `現有掛單價格 ${order.price} 超過套利區間 ${minPrice.toFixed(
+            3
+          )} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
         await this.maxRestApi.cancelOrder(order.id);

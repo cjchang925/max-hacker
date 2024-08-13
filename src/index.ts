@@ -58,6 +58,11 @@ class Frederick {
    */
   private maxState: MaxState = MaxState.DEFAULT;
 
+  /**
+   * MAX 最新掛單價格
+   */
+  private maxLatestOrderPrice: number | null = null;
+
   constructor() {
     dotenv.config();
 
@@ -99,19 +104,19 @@ class Frederick {
    */
   public maxOrderUpdateCallback = (orderMessage: MaxOrderMessage): void => {
     for (const order of orderMessage.o) {
-      const id = order.i;
-
-      const orderIndex = this.maxActiveOrders.findIndex(
-        (order) => order.id === id
-      );
-
-      if (orderIndex === -1) {
-        // 表示是反向 XEMM 的撤單訊息，不需處理
-        return;
-      }
-
       // 收到撤單訊息，將已撤銷的掛單從有效掛單紀錄中移除
       if (order.S === "cancel") {
+        const id = order.i;
+
+        const orderIndex = this.maxActiveOrders.findIndex(
+          (order) => order.id === id
+        );
+
+        if (orderIndex === -1) {
+          // 表示是反向 XEMM 的撤單訊息，不需處理
+          continue;
+        }
+
         log(`撤單成功，訂單編號 ${id}`);
 
         this.maxActiveOrders.splice(orderIndex, 1);
@@ -130,8 +135,11 @@ class Frederick {
 
       if (order.S === "wait") {
         if (order.v === order.rv) {
-          // 如果已有掛單紀錄就不再重複加入
-          if (this.orderIdSet.has(order.i)) {
+          // 如果已有掛單紀錄或是掛單價格與最新價格紀錄不符就不需處理
+          if (
+            this.orderIdSet.has(order.i) ||
+            parseFloat(order.p) !== this.maxLatestOrderPrice
+          ) {
             continue;
           }
 
@@ -155,6 +163,17 @@ class Frederick {
         }
 
         // 掛單部分成交，更新有效掛單紀錄
+        const id = order.i;
+
+        const orderIndex = this.maxActiveOrders.findIndex(
+          (order) => order.id === id
+        );
+
+        if (orderIndex === -1) {
+          // 表示是反向 XEMM 的撤單訊息，不需處理
+          continue;
+        }
+
         this.maxActiveOrders[orderIndex].remainingVolume = order.rv;
 
         // MAX 已成交數量
@@ -167,6 +186,17 @@ class Frederick {
 
       if (order.S === "done") {
         // 訂單已成交，在有效掛單紀錄中移除
+        const id = order.i;
+
+        const orderIndex = this.maxActiveOrders.findIndex(
+          (order) => order.id === id
+        );
+
+        if (orderIndex === -1) {
+          // 表示是反向 XEMM 的撤單訊息，不需處理
+          continue;
+        }
+
         this.maxActiveOrders.splice(orderIndex, 1);
         const volume = order.v;
         this.binanceApiWs.placeMarketOrder(volume, "BUY");
@@ -209,6 +239,8 @@ class Frederick {
       maxIdealSellPrice = maxBestBid + 0.01;
       isInitialOutOfRange = true;
     }
+
+    this.maxLatestOrderPrice = maxIdealSellPrice;
 
     // 掛單
     try {

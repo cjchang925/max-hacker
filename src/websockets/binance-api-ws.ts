@@ -78,23 +78,18 @@ export class BinanceApiWs {
   };
 
   /**
-   * 市價買進。市價單的數量需包含實際買進數量與手續費，因此下單的量會和參數的 volume 有些微不同
+   * 市價買進
    * @param volume 買進數量，不包含手續費
    * @param side "BUY" 表示買進, "SELL" 表示賣出
    */
   public placeMarketOrder = (volume: string, side: string): void => {
     log(`開始在幣安以市價單 ${side} ${volume} BTC`);
 
-    // 市價單買進時，需要在數量上加上 0.1% 的手續費
-    const volumeWithFee = (parseFloat(volume) * 1.001).toString();
-
-    log(`實際下單數量為 ${volumeWithFee} BTC`);
-
     const params: Record<string, string> = {
       symbol: "BTCUSDT",
       side,
       type: "MARKET",
-      quantity: volumeWithFee,
+      quantity: volume,
       timestamp: Date.now().toString(),
     };
 

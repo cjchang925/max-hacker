@@ -1,5 +1,5 @@
 .env
 node_modules/
-src/secrets/
+src/secrets/private-key.pem
 src/test/
 .DS_Store

@@ -112,8 +112,8 @@ class Frederick {
           (order) => order.id === id
         );
 
-        if (orderIndex === -1) {
-          // 表示是反向 XEMM 的撤單訊息，不需處理
+        if (orderIndex === -1 || !this.cancellingOrderSet.has(id)) {
+          // 表示是反向 XEMM 的撤單訊息或是已 timeout，不需處理
           continue;
         }
 
@@ -331,6 +331,25 @@ class Frederick {
         );
         this.cancellingOrderSet.add(order.id);
         this.maxRestApi.cancelOrder(order.id, "sell");
+
+        setTimeout(() => {
+          if (this.cancellingOrderSet.has(order.id)) {
+            log(`五秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`);
+            this.cancellingOrderSet.delete(order.id);
+            this.ordersInitialOutOfRangeMap.delete(order.id);
+
+            const orderIndex = this.maxActiveOrders.findIndex(
+              (activeOrder) => activeOrder.id === order.id
+            );
+
+            this.maxActiveOrders.splice(orderIndex, 1);
+
+            if (!this.cancellingOrderSet.size) {
+              // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+              this.maxState = MaxState.DEFAULT;
+            }
+          }
+        }, 5000);
       }
     }
   };

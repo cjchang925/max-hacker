@@ -60,7 +60,7 @@ export class MaxRestApi {
       side,
       volume, // Precision: 6
       price,
-      ord_type: "limit",
+      ord_type: "post_only",
       nonce,
     };
 

@@ -127,8 +127,10 @@ class Frederick {
         // 從掛單初始範圍記錄中移除
         this.ordersInitialOutOfRangeMap.delete(id);
 
-        // 將 maxState 改為預設以便掛新單
-        this.maxState = MaxState.DEFAULT;
+        if (!this.cancellingOrderSet.size) {
+          // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+          this.maxState = MaxState.DEFAULT;
+        }
 
         continue;
       }
@@ -324,10 +326,8 @@ class Frederick {
           )} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
-        await this.maxRestApi.cancelOrder(order.id, "buy");
+        this.maxRestApi.cancelOrder(order.id, "buy");
       }
-
-      this.maxState = MaxState.DEFAULT;
     }
   };
 }

@@ -13,4 +13,9 @@ export enum MaxState {
    * 正在撤單中
    */
   PENDING_CANCEL_ORDER = "pending-cancel-order",
+
+  /**
+   * 進入休眠狀態
+   */
+  SLEEP = "sleep",
 }

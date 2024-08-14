@@ -169,4 +169,64 @@ export class MaxRestApi {
       throw new Error(response.error?.message);
     }
   };
+
+  /**
+   * 撤銷所有 MAX 掛單
+   * @param side 掛單方向
+   */
+  public clearOrders = async (side: "buy" | "sell"): Promise<void> => {
+    log(`開始撤銷所有 MAX ${side} 掛單`);
+
+    let nonce = Date.now();
+
+    if (side === "buy" && nonce % 2) {
+      nonce += 1;
+    }
+
+    if (side === "sell" && !(nonce % 2)) {
+      nonce += 1;
+    }
+
+    const request = {
+      market: "btcusdt",
+      side,
+      nonce,
+    };
+
+    const paramsToBeSigned = {
+      ...request,
+      path: restapiUrl.max.clearOrders,
+    };
+
+    const payload = Buffer.from(JSON.stringify(paramsToBeSigned)).toString(
+      "base64"
+    );
+
+    const signature = createHmac("sha256", this.secretKey)
+      .update(payload)
+      .digest("hex");
+
+    const response = await fetch(
+      `${restapiUrl.max.baseUrl}${restapiUrl.max.clearOrders}?${qs.stringify(
+        request,
+        {
+          arrayFormat: "brackets",
+        }
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "X-MAX-ACCESSKEY": this.accessKey,
+          "X-MAX-PAYLOAD": payload,
+          "X-MAX-SIGNATURE": signature,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      log(`撤銷所有 ${side} 掛單成功`);
+    } else {
+      throw new Error(`撤銷所有 ${side} 掛單失敗`);
+    }
+  };
 }

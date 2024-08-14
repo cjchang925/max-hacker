@@ -99,6 +99,23 @@ class Frederick {
   };
 
   /**
+   * Frederick goes to bed. 撤掉所有掛單。
+   */
+  public goToBed = async (): Promise<void> => {
+    log("準備重啟程式，第一次撤回所有掛單");
+
+    this.maxState = MaxState.SLEEP;
+
+    await this.maxRestApi.clearOrders("sell");
+
+    await sleep(5000);
+
+    log("第一次撤回後等待五秒，再次撤回所有掛單");
+
+    await this.maxRestApi.clearOrders("sell");
+  };
+
+  /**
    * 在 MAX 掛單狀態更新時呼叫的 callback
    * @param orderMessage 更新掛單狀態的訊息
    */
@@ -127,7 +144,7 @@ class Frederick {
         // 從掛單初始範圍記錄中移除
         this.ordersInitialOutOfRangeMap.delete(id);
 
-        if (!this.cancellingOrderSet.size) {
+        if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
           // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
           this.maxState = MaxState.DEFAULT;
         }
@@ -158,8 +175,10 @@ class Frederick {
 
           log(`掛單成功，訂單編號 ${order.i}`);
 
-          // 將 maxState 改為預設
-          this.maxState = MaxState.DEFAULT;
+          if (this.maxState !== MaxState.SLEEP) {
+            // 將 maxState 改為預設
+            this.maxState = MaxState.DEFAULT;
+          }
 
           continue;
         }
@@ -334,7 +353,9 @@ class Frederick {
 
         setTimeout(() => {
           if (this.cancellingOrderSet.has(order.id)) {
-            log(`五秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`);
+            log(
+              `30 秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`
+            );
             this.cancellingOrderSet.delete(order.id);
             this.ordersInitialOutOfRangeMap.delete(order.id);
 
@@ -349,15 +370,29 @@ class Frederick {
               this.maxState = MaxState.DEFAULT;
             }
           }
-        }, 5000);
+        }, 30000);
       }
     }
   };
 }
 
-const main = () => {
+const executeOnce = async () => {
   const frederick = new Frederick();
   frederick.kicksOff();
+
+  // After 23 hours and 58 minutes, Frederick goes to bed.
+  setTimeout(async () => {
+    await frederick.goToBed();
+    log("Frederick goes to bed.");
+    log("----------------------------------------");
+    log("");
+  }, 23 * 60 * 60 * 1000 + 58 * 60 * 1000);
+};
+
+const main = () => {
+  // Execute Frederick every 24 hours.
+  executeOnce();
+  setInterval(executeOnce, 24 * 60 * 60 * 1000);
 };
 
 main();

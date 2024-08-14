@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import fs from "fs";
 import crypto from "crypto";
 import { BinancePlaceOrderResponse } from "../interfaces/binance-place-order-response";
-import { parse } from "path";
 
 export class BinanceApiWs {
   private ws: WebSocket;

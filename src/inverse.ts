@@ -164,6 +164,8 @@ class Frederick {
           continue;
         }
 
+        log(`收到訂單部分成交訊息，訂單編號 ${order.i}`);
+
         // 掛單部分成交，更新有效掛單紀錄
         const id = order.i;
 
@@ -187,6 +189,8 @@ class Frederick {
       }
 
       if (order.S === "done") {
+        log(`收到訂單全部成交訊息，訂單編號 ${order.i}`);
+
         // 訂單已成交，在有效掛單紀錄中移除
         const id = order.i;
 

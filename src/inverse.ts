@@ -222,9 +222,23 @@ class Frederick {
           continue;
         }
 
-        this.maxActiveOrders.splice(orderIndex, 1);
         const volume = order.v;
         this.binanceApiWs.placeMarketOrder(volume, "SELL");
+
+        if (this.cancellingOrderSet.has(id)) {
+          this.cancellingOrderSet.delete(id);
+        }
+
+        if (this.ordersInitialOutOfRangeMap.has(id)) {
+          this.ordersInitialOutOfRangeMap.delete(id);
+        }
+
+        this.maxActiveOrders.splice(orderIndex, 1);
+
+        if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
+          // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+          this.maxState = MaxState.DEFAULT;
+        }
       }
     }
   };
@@ -358,7 +372,7 @@ class Frederick {
         setTimeout(() => {
           if (this.cancellingOrderSet.has(order.id)) {
             log(
-              `30 秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`
+              `120 秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`
             );
             this.cancellingOrderSet.delete(order.id);
             this.ordersInitialOutOfRangeMap.delete(order.id);
@@ -374,7 +388,7 @@ class Frederick {
               this.maxState = MaxState.DEFAULT;
             }
           }
-        }, 30000);
+        }, 120000);
       }
     }
   };

@@ -6,6 +6,7 @@ export const websocketUrl = {
   binance: {
     stream: {
       btcusdtTrade: "wss://stream.binance.com:443/ws/btcusdt@aggTrade",
+      btcfdusdTrade: "wss://stream.binance.com:443/ws/btcfdusd@trade",
     },
     api: "wss://ws-api.binance.com:443/ws-api/v3",
   },

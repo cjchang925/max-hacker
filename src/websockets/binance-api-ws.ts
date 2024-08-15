@@ -85,7 +85,8 @@ export class BinanceApiWs {
     log(`開始在幣安以市價單 ${side} ${volume} BTC`);
 
     const params: Record<string, string> = {
-      symbol: "BTCUSDT",
+      // symbol: "BTCUSDT",
+      symbol: "BTCFDUSD", // Now use BTC/FDUSD market
       side,
       type: "MARKET",
       quantity: volume,

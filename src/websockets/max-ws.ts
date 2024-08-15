@@ -54,7 +54,7 @@ export class MaxWs {
         callback(orderMessage);
       }
     });
-  }
+  };
 
   /**
    * 取得 MAX 最佳買價
@@ -78,7 +78,7 @@ export class MaxWs {
     }
 
     return this.maxBestAsk;
-  }
+  };
 
   /**
    * 連上 WebSocket server
@@ -153,8 +153,16 @@ export class MaxWs {
       }
 
       if (book.e === "snapshot") {
-        this.maxBestAsk = parseFloat(book.a[0][0]);
-        this.maxBestBid = parseFloat(book.b[0][0]);
+        try {
+          this.maxBestAsk = parseFloat(book.a[0][0]);
+          this.maxBestBid = parseFloat(book.b[0][0]);
+        } catch (error) {
+          log(`讀取 snapshot 訊息發生錯誤，訊息內容：`);
+          console.log(book);
+          log(`錯誤訊息：`);
+          console.log(error);
+        }
+
         return;
       }
 

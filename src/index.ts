@@ -293,6 +293,10 @@ class Frederick {
       }, 3000);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
+      this.maxState = MaxState.SLEEP;
+      await this.maxRestApi.clearOrders("sell");
+      log("餘額不足掛單，停止 XEMM 策略，已撤回所有掛單");
+      process.exit(1);
     }
   };
 

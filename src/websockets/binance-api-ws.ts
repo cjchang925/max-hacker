@@ -44,8 +44,6 @@ export class BinanceApiWs {
 
       if (response.id === "frederick-market-order") {
         log("幣安市價單交易成功");
-        log(`完成一次 XEMM 測試`);
-        process.exit(0);
       }
     });
   };

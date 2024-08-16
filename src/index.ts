@@ -153,8 +153,8 @@ class Frederick {
         continue;
       }
 
-      if (order.S === "wait") {
-        if (order.v === order.rv) {
+      if (order.S === "wait" || order.S === "done") {
+        if (+order.v === +order.rv) {
           // 如果已有掛單紀錄或是掛單價格與最新價格紀錄不符就不需處理
           if (
             this.orderIdSet.has(order.i) ||
@@ -169,7 +169,6 @@ class Frederick {
             price: order.p,
             state: order.S,
             volume: order.v,
-            remainingVolume: order.rv,
             timestamp: Date.now(),
           });
 
@@ -185,66 +184,45 @@ class Frederick {
           continue;
         }
 
-        log(`收到訂單部分成交訊息，訂單編號 ${order.i}`);
-
-        // 掛單部分成交，更新有效掛單紀錄
-        const id = order.i;
-
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        if (orderIndex === -1) {
-          // 表示是反向 XEMM 的撤單訊息，不需處理
-          continue;
-        }
-
-        this.maxActiveOrders[orderIndex].remainingVolume = order.rv;
+        log(`收到訂單成交訊息，訂單編號 ${order.i}`);
 
         // MAX 已成交數量
-        const executedVolume = (
-          parseFloat(order.v) - parseFloat(order.rv)
-        ).toString();
+        const executedVolume = order.ev;
 
         // 如果現在是在 MAX 賣出，就在幣安買入；反之則在幣安賣出
         const direction = nowSellingExchange === "MAX" ? "BUY" : "SELL";
 
         this.binanceApiWs.placeMarketOrder(executedVolume, direction);
+
+        if (+order.ev === +order.v) {
+          log(`訂單已全部成交，訂單編號 ${order.i}`);
+          const orderIndex = this.maxActiveOrders.findIndex(
+            (order_) => order_.id === order.i
+          );
+
+          // 訂單已全部成交，從有效掛單紀錄中移除
+          if (this.cancellingOrderSet.has(order.i)) {
+            this.cancellingOrderSet.delete(order.i);
+          }
+
+          this.maxActiveOrders.splice(orderIndex, 1);
+
+          if (
+            !this.cancellingOrderSet.size &&
+            this.maxState !== MaxState.SLEEP
+          ) {
+            // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+            this.maxState = MaxState.DEFAULT;
+          }
+        } else {
+          log(`訂單僅部分成交，訂單編號 ${order.i}`);
+        }
+
+        continue;
       }
 
-      if (order.S === "done") {
-        log(`收到訂單全部成交訊息，訂單編號 ${order.i}`);
-
-        // 訂單已成交，在有效掛單紀錄中移除
-        const id = order.i;
-
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        if (orderIndex === -1) {
-          // 表示是反向 XEMM 的撤單訊息，不需處理
-          continue;
-        }
-
-        const volume = order.v;
-
-        // 如果現在是在 MAX 賣出，就在幣安買入；反之則在幣安賣出
-        const direction = nowSellingExchange === "MAX" ? "BUY" : "SELL";
-
-        this.binanceApiWs.placeMarketOrder(volume, direction);
-
-        if (this.cancellingOrderSet.has(id)) {
-          this.cancellingOrderSet.delete(id);
-        }
-
-        this.maxActiveOrders.splice(orderIndex, 1);
-
-        if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
-          // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
-          this.maxState = MaxState.DEFAULT;
-        }
-      }
+      log(`未知訂單狀態，訂單編號 ${order.i}，內容如下：`);
+      console.log(order);
     }
   };
 

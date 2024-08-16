@@ -32,6 +32,11 @@ export interface MaxOrderMessage {
     rv: string;
 
     /**
+     * 已成交量
+     */
+    ev: string;
+
+    /**
      * 訂單狀態
      */
     S: string;

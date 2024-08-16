@@ -12,7 +12,7 @@ import { MaxOrderMessage } from "./interfaces/max-order-message";
  * 目前賣出 BTC 的交易所，決定 XEMM 執行方向
  * 預設先從 MAX 賣出，完成一次 XEMM 後再改由 Binance 賣出，來回切換
  */
-let nowSellingExchange: "MAX" | "Binance" = "MAX";
+let nowSellingExchange: "MAX" | "Binance" = "Binance";
 
 /**
  * Frederick, the agent.

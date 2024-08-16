@@ -168,7 +168,6 @@ class Frederick {
             price: order.p,
             state: order.S,
             volume: order.v,
-            remainingVolume: order.rv,
             timestamp: Date.now(),
           });
 
@@ -197,8 +196,6 @@ class Frederick {
           // 表示是正向 XEMM 的撤單訊息，不需處理
           continue;
         }
-
-        this.maxActiveOrders[orderIndex].remainingVolume = order.rv;
 
         // MAX 已成交數量
         const executedVolume = (

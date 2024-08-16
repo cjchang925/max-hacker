@@ -95,7 +95,6 @@ export class MaxRestApi {
       price: response.price!,
       state: response.state!,
       volume: response.volume!,
-      remainingVolume: response.remaining_volume!,
       timestamp: Date.now(),
     };
 

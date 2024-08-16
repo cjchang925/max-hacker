@@ -169,6 +169,7 @@ class Frederick {
             state: order.S,
             volume: order.v,
             remainingVolume: order.rv,
+            timestamp: Date.now(),
           });
 
           this.orderIdSet.add(order.i);
@@ -263,8 +264,8 @@ class Frederick {
     // 將狀態改為等待掛單，避免幣安價格變化時重複掛單
     this.maxState = MaxState.PENDING_PLACE_ORDER;
 
-    // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.17%
-    let maxIdealBuyPrice = parseFloat((price * 0.9983).toFixed(2));
+    // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.16%
+    let maxIdealBuyPrice = parseFloat((price * 0.9984).toFixed(2));
 
     // 取得 MAX 最佳買價
     const maxBestAsk = this.maxWs.getBestAsk();
@@ -324,8 +325,7 @@ class Frederick {
       return;
     }
 
-    const minPrice = price * 0.9982;
-    const maxPrice = price * 0.9984;
+    const maxPrice = price * 0.9986;
 
     const maxInvalidOrders = [];
 
@@ -335,10 +335,11 @@ class Frederick {
         continue;
       }
 
-      // 如果一開始掛單是在套利區間內且現在價格超出套利區間，就需撤單
+      // 如果一開始掛單是在套利區間內且現在價格超出套利區間，或是掛單時間已超過十秒，就需撤單
       if (
-        (+order.price < minPrice || +order.price > maxPrice) &&
-        !this.ordersInitialOutOfRangeMap.get(order.id)
+        (+order.price > maxPrice &&
+          !this.ordersInitialOutOfRangeMap.get(order.id)) ||
+        Date.now() - order.timestamp > 10000
       ) {
         maxInvalidOrders.push(order);
         continue;
@@ -362,9 +363,9 @@ class Frederick {
 
       for (const order of maxInvalidOrders) {
         log(
-          `現有掛單價格 ${order.price} 超過套利區間 ${minPrice.toFixed(
+          `現有掛單價格 ${order.price} 高於套利區間邊界 ${maxPrice.toFixed(
             3
-          )} ~ ${maxPrice.toFixed(3)}，撤銷掛單`
+          )} 或掛單時間超過十秒，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
         this.maxRestApi.cancelOrder(order.id, "buy");

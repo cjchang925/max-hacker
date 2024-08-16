@@ -32,28 +32,20 @@ export class MaxRestApi {
   }
 
   /**
-   * 掛單。如果是買單，nonce 為偶數；如果是賣單，nonce 為奇數，避免兩個程式同時執行時 nonce 相同
+   * 掛單
    * @param price 掛單的價格
    * @param side "buy" 表示買進, "sell" 表示賣出
-   * @param volume 掛單的數量，預設為 0.1
+   * @param volume 掛單的數量，預設為 0.005
    * @returns 掛單編號
    */
   public placeOrder = async (
     price: string,
     side: "buy" | "sell",
-    volume: string = "0.1"
+    volume: string = "0.005"
   ): Promise<MaxOrder> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 
     let nonce = Date.now();
-
-    if (side === "buy" && nonce % 2) {
-      nonce += 1;
-    }
-
-    if (side === "sell" && !(nonce % 2)) {
-      nonce += 1;
-    }
 
     const request = {
       market: "btcusdt",
@@ -111,7 +103,7 @@ export class MaxRestApi {
   };
 
   /**
-   * 撤單。如果是買單，nonce 為偶數；如果是賣單，nonce 為奇數，避免兩個程式同時執行時 nonce 相同
+   * 撤單
    * @param id 要撤單的訂單編號
    * @param side "buy" 表示撤掉買單, "sell" 表示撤掉賣單
    */
@@ -122,14 +114,6 @@ export class MaxRestApi {
     log(`開始撤單，訂單編號：${id}`);
 
     let nonce = Date.now();
-
-    if (side === "buy" && nonce % 2) {
-      nonce += 1;
-    }
-
-    if (side === "sell" && !(nonce % 2)) {
-      nonce += 1;
-    }
 
     const request = {
       id,
@@ -179,14 +163,6 @@ export class MaxRestApi {
     log(`開始撤銷所有 MAX ${side} 掛單`);
 
     let nonce = Date.now();
-
-    if (side === "buy" && nonce % 2) {
-      nonce += 1;
-    }
-
-    if (side === "sell" && !(nonce % 2)) {
-      nonce += 1;
-    }
 
     const request = {
       market: "btcusdt",

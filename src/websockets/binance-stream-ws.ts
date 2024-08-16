@@ -8,7 +8,7 @@ export class BinanceStreamWs {
 
   constructor() {
     // this.ws = new WebSocket(websocketUrl.binance.stream.btcusdtTrade);
-    this.ws = new WebSocket(websocketUrl.binance.stream.btcfdusdTrade);  // Now use BTC/FDUSD market
+    this.ws = new WebSocket(websocketUrl.binance.stream.solfdusdTrade);  // Now use SOL/FDUSD market
   }
 
   /**

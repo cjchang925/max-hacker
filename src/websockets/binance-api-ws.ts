@@ -80,11 +80,12 @@ export class BinanceApiWs {
    * @param side "BUY" 表示買進, "SELL" 表示賣出
    */
   public placeMarketOrder = (volume: string, side: string): void => {
-    log(`開始在幣安以市價單 ${side} ${volume} BTC`);
+    // log(`開始在幣安以市價單 ${side} ${volume} BTC`);
+    log(`開始在幣安以市價單 ${side} ${volume} SOL`);
 
     const params: Record<string, string> = {
       // symbol: "BTCUSDT",
-      symbol: "BTCFDUSD", // Now use BTC/FDUSD market
+      symbol: "SOLFDUSD", // Now use SOL/FDUSD market
       side,
       type: "MARKET",
       quantity: volume,

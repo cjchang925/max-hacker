@@ -8,6 +8,11 @@ import { MaxOrder } from "./interfaces/max-order";
 import { MaxState } from "./enums/max-state";
 import { sleep } from "./utils/sleep";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
+/**
+ * 目前賣出 BTC 的交易所，決定 XEMM 執行方向
+ * 預設先從 MAX 賣出，完成一次 XEMM 後再改由 Binance 賣出，來回切換
+ */
+let nowSellingExchange: "MAX" | "Binance" = "MAX";
 
 /**
  * Frederick, the agent.
@@ -37,11 +42,6 @@ class Frederick {
    * MAX 所有有效的掛單
    */
   private maxActiveOrders: MaxOrder[] = [];
-
-  /**
-   * 記錄掛單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
-   */
-  private ordersInitialOutOfRangeMap: Map<number, boolean> = new Map();
 
   /**
    * 正在撤銷的掛單編號集合，避免重複撤單卡住程式執行
@@ -94,6 +94,8 @@ class Frederick {
 
     log("已等待完成，開始執行");
 
+    log(`目前策略方向：在 ${nowSellingExchange} 出售 BTC`);
+
     // 監聽幣安最新價格，並在取得價格後呼叫 binanceLatestPriceCallback
     this.binanceStreamWs.listenToLatestPrices(this.binanceLatestPriceCallback);
   };
@@ -106,13 +108,15 @@ class Frederick {
 
     this.maxState = MaxState.SLEEP;
 
-    await this.maxRestApi.clearOrders("sell");
+    const direction = nowSellingExchange === "MAX" ? "sell" : "buy";
+
+    await this.maxRestApi.clearOrders(direction);
 
     await sleep(5000);
 
     log("第一次撤回後等待五秒，再次撤回所有掛單");
 
-    await this.maxRestApi.clearOrders("sell");
+    await this.maxRestApi.clearOrders(direction);
   };
 
   /**
@@ -140,9 +144,6 @@ class Frederick {
 
         // 從正在撤銷的掛單編號集合中移除
         this.cancellingOrderSet.delete(id);
-
-        // 從掛單初始範圍記錄中移除
-        this.ordersInitialOutOfRangeMap.delete(id);
 
         if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
           // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
@@ -205,7 +206,10 @@ class Frederick {
           parseFloat(order.v) - parseFloat(order.rv)
         ).toString();
 
-        this.binanceApiWs.placeMarketOrder(executedVolume, "BUY");
+        // 如果現在是在 MAX 賣出，就在幣安買入；反之則在幣安賣出
+        const direction = nowSellingExchange === "MAX" ? "BUY" : "SELL";
+
+        this.binanceApiWs.placeMarketOrder(executedVolume, direction);
       }
 
       if (order.S === "done") {
@@ -224,14 +228,14 @@ class Frederick {
         }
 
         const volume = order.v;
-        this.binanceApiWs.placeMarketOrder(volume, "BUY");
+
+        // 如果現在是在 MAX 賣出，就在幣安買入；反之則在幣安賣出
+        const direction = nowSellingExchange === "MAX" ? "BUY" : "SELL";
+
+        this.binanceApiWs.placeMarketOrder(volume, direction);
 
         if (this.cancellingOrderSet.has(id)) {
           this.cancellingOrderSet.delete(id);
-        }
-
-        if (this.ordersInitialOutOfRangeMap.has(id)) {
-          this.ordersInitialOutOfRangeMap.delete(id);
         }
 
         this.maxActiveOrders.splice(orderIndex, 1);
@@ -264,33 +268,45 @@ class Frederick {
     // 將狀態改為等待掛單，避免幣安價格變化時重複掛單
     this.maxState = MaxState.PENDING_PLACE_ORDER;
 
-    // 計算 MAX 理想掛單價格，也就是幣安最新價格上方 0.16%
-    let maxIdealSellPrice = parseFloat((price * 1.0016).toFixed(2));
+    // MAX 理想掛單價格，根據當前策略方向有不同算法
+    let maxIdealPrice: number = 0;
 
-    // 取得 MAX 最佳買價
-    const maxBestBid = this.maxWs.getBestBid();
+    if (nowSellingExchange === "MAX") {
+      // 計算 MAX 理想掛單價格，也就是幣安最新價格上方 0.12%
+      maxIdealPrice = parseFloat((price * 1.0012).toFixed(2));
 
-    // 是否在掛單時就已經受掛單簿影響而使價格超出套利區間
-    let isInitialOutOfRange = false;
+      // 取得 MAX 最佳買價
+      const maxBestBid = this.maxWs.getBestBid();
 
-    // 如果最佳買價比理想掛單價格還高，則將理想掛單價格設為最佳買價 + 0.01
-    if (maxBestBid >= maxIdealSellPrice) {
-      log("MAX best bid 比理想掛單價格還高，調整掛單價格");
-      maxIdealSellPrice = maxBestBid + 0.01;
-      isInitialOutOfRange = true;
+      // 如果最佳買價比理想掛單價格還高，則將理想掛單價格設為最佳買價 + 0.01
+      if (maxBestBid >= maxIdealPrice) {
+        log("MAX best bid 比理想掛單價格還高，調整掛單價格");
+        maxIdealPrice = maxBestBid + 0.01;
+      }
+    } else {
+      // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.12%
+      maxIdealPrice = parseFloat((price * 0.9988).toFixed(2));
+
+      // 取得 MAX 最佳買價
+      const maxBestAsk = this.maxWs.getBestAsk();
+
+      // 如果最佳賣價比理想掛單價格還低，則將理想掛單價格設為最佳賣價 - 0.01
+      if (maxBestAsk <= maxIdealPrice) {
+        log("MAX best ask 比理想掛單價格還低，調整掛單價格");
+        maxIdealPrice = maxBestAsk - 0.01;
+      }
     }
 
-    this.maxLatestOrderPrice = maxIdealSellPrice;
+    this.maxLatestOrderPrice = maxIdealPrice;
 
     // 掛單
     try {
-      const order = await this.maxRestApi.placeOrder(
-        maxIdealSellPrice.toString(),
-        "sell"
-      );
+      const direction = nowSellingExchange === "MAX" ? "sell" : "buy";
 
-      // 紀錄訂單是否在掛單時就已經受掛單簿影響而使價格超出套利區間
-      this.ordersInitialOutOfRangeMap.set(order.id, isInitialOutOfRange);
+      const order = await this.maxRestApi.placeOrder(
+        `${maxIdealPrice}`,
+        direction
+      );
 
       // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以三秒後仍未收到掛單訊息就認定掛單成功
       setTimeout(() => {
@@ -308,16 +324,35 @@ class Frederick {
       }, 3000);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
+
       this.maxState = MaxState.SLEEP;
-      await this.maxRestApi.clearOrders("sell");
-      log("餘額不足掛單，停止 XEMM 策略，已撤回所有掛單");
-      process.exit(1);
+
+      const direction = nowSellingExchange === "MAX" ? "sell" : "buy";
+
+      log("第一次撤回所有掛單");
+
+      await this.maxRestApi.clearOrders(direction);
+
+      await sleep(5000);
+
+      log("已等待五秒，再次撤回所有掛單");
+
+      await this.maxRestApi.clearOrders(direction);
+
+      log("撤回掛單完成。由於餘額不足，開始改變策略方向");
+
+      nowSellingExchange = nowSellingExchange === "MAX" ? "Binance" : "MAX";
+
+      log(`新策略方向：在 ${nowSellingExchange} 出售 BTC`);
+
+      log("繼續執行 XEMM");
+
+      this.maxState = MaxState.DEFAULT;
     }
   };
 
   /**
-   * 處理 MAX 訂單簿上的掛單，撤銷價格超出套利區間的單子
-   * 套利區間：幣安價格上方 0.16% ~ 0.18%
+   * 處理 MAX 訂單簿上的掛單，撤銷價格和當前價差不到 0.1% 的單子
    * @param price 幣安最新價格
    */
   private processActiveOrders = async (price: number): Promise<void> => {
@@ -325,7 +360,9 @@ class Frederick {
       return;
     }
 
-    const minPrice = price * 1.0014;
+    // 套利區間邊界價格
+    const borderPrice =
+      nowSellingExchange === "MAX" ? price * 1.001 : price * 0.999;
 
     const maxInvalidOrders = [];
 
@@ -336,24 +373,17 @@ class Frederick {
       }
 
       // 如果一開始掛單是在套利區間內且現在價格超出套利區間，或是掛單時間已超過十秒，就需撤單
-      if (
-        (+order.price < minPrice &&
-          !this.ordersInitialOutOfRangeMap.get(order.id)) ||
-        Date.now() - order.timestamp >= 10000
-      ) {
+      if (Date.now() - order.timestamp >= 10000) {
         maxInvalidOrders.push(order);
         continue;
       }
 
-      // 如果一開始掛單是在套利區間內，表示現在依然如此，不需撤單
-      if (!this.ordersInitialOutOfRangeMap.get(order.id)) {
-        continue;
-      }
-
-      // 如果一開始掛單是在套利區間外且現在 best bid 比掛單價格還低超過 0.01，就需撤單
-      const maxBestBid = this.maxWs.getBestBid();
-
-      if (maxBestBid < +order.price - 0.01) {
+      if (
+        (nowSellingExchange === "MAX" &&
+          parseFloat(order.price) < borderPrice) ||
+        (nowSellingExchange === "Binance" &&
+          parseFloat(order.price) > borderPrice)
+      ) {
         maxInvalidOrders.push(order);
       }
     }
@@ -363,12 +393,13 @@ class Frederick {
 
       for (const order of maxInvalidOrders) {
         log(
-          `現有掛單價格 ${order.price} 低於套利區間邊界 ${minPrice.toFixed(
+          `現有掛單價格 ${order.price} 超越套利區間邊界 ${borderPrice.toFixed(
             3
           )} 或掛單時間超過十秒，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
-        this.maxRestApi.cancelOrder(order.id, "sell");
+        const direction = nowSellingExchange === "MAX" ? "sell" : "buy";
+        this.maxRestApi.cancelOrder(order.id, direction);
 
         setTimeout(() => {
           if (this.cancellingOrderSet.has(order.id)) {
@@ -376,7 +407,6 @@ class Frederick {
               `120 秒後仍未收到撤單訊息，系統認定撤單成功，訂單編號 ${order.id}`
             );
             this.cancellingOrderSet.delete(order.id);
-            this.ordersInitialOutOfRangeMap.delete(order.id);
 
             const orderIndex = this.maxActiveOrders.findIndex(
               (activeOrder) => activeOrder.id === order.id

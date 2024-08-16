@@ -35,13 +35,13 @@ export class MaxRestApi {
    * 掛單。如果是買單，nonce 為偶數；如果是賣單，nonce 為奇數，避免兩個程式同時執行時 nonce 相同
    * @param price 掛單的價格
    * @param side "buy" 表示買進, "sell" 表示賣出
-   * @param volume 掛單的數量，預設為 0.0002
+   * @param volume 掛單的數量，預設為 0.0006
    * @returns 掛單編號
    */
   public placeOrder = async (
     price: string,
     side: "buy" | "sell",
-    volume: string = "0.0002"
+    volume: string = "0.0006"
   ): Promise<MaxOrder> => {
     log(`開始掛單，價格：${price}，數量：${volume}`);
 

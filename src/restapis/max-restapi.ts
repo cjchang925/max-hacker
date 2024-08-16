@@ -56,8 +56,7 @@ export class MaxRestApi {
     }
 
     const request = {
-      // market: "btcusdt",
-      market: "solusdt",
+      market: "btcusdt",
       side,
       volume, // Precision: 6
       price,
@@ -190,8 +189,7 @@ export class MaxRestApi {
     }
 
     const request = {
-      // market: "btcusdt",
-      market: "solusdt",
+      market: "btcusdt",
       side,
       nonce,
     };

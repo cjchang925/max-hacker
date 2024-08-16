@@ -130,8 +130,7 @@ export class MaxWs {
       subscriptions: [
         {
           channel: "book",
-          // market: "btcusdt",
-          market: "solusdt",
+          market: "btcusdt",
           depth: 1,
         },
       ],

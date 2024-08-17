@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import crypto from "crypto";
 import { BinancePlaceOrderResponse } from "../interfaces/binance-place-order-response";
+import { BinanceAccountResponse } from "../interfaces/binance-account-response";
 
 export class BinanceApiWs {
   private ws: WebSocket;
@@ -97,6 +98,41 @@ export class BinanceApiWs {
     };
 
     this.ws.send(JSON.stringify(request));
+  };
+
+  /**
+   * 取得帳戶餘額
+   */
+  public getAccountBalance = (): void => {
+    const params: Record<string, string> = {
+      timestamp: Date.now().toString(),
+    };
+
+    const request = {
+      id: "frederick-account-balance",
+      method: "account.status",
+      params,
+    };
+
+    this.ws.send(JSON.stringify(request));
+  }
+
+  /**
+   * 監聽帳戶餘額訊息
+   */
+  public listenToAccountUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: WebSocket.Data) => {
+      const response: BinanceAccountResponse = JSON.parse(data.toString());
+
+      if (response.status !== 200) {
+        console.error(response);
+        throw new Error("幣安帳戶餘額查詢失敗");
+      }
+
+      if (response.id === "frederick-account-balance" && callback) {
+        callback(response);
+      }
+    });
   };
 
   /**

@@ -1,3 +1,6 @@
+/**
+ * 幣安下單的回應
+ */
 export interface BinancePlaceOrderResponse {
   /**
    * 訂單編號（客製化）

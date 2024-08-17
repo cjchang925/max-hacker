@@ -5,6 +5,8 @@ import { log } from "../utils/log";
 import dotenv from "dotenv";
 import { MaxSocketMessage } from "../interfaces/max-socket-message";
 import { MaxOrderMessage } from "../interfaces/max-order-message";
+import { MaxAccountMessage } from "../interfaces/max-account-message";
+import { MaxBalance } from "../interfaces/max-balance";
 
 export class MaxWs {
   private ws: WebSocket;
@@ -52,6 +54,24 @@ export class MaxWs {
 
       if (orderMessage.e === "order_update") {
         callback(orderMessage);
+      }
+    });
+  };
+
+  /**
+   * 訂閱 MAX 帳戶餘額資訊
+   * @param callback 接收帳戶餘額資訊的函式
+   */
+  public listenToAccountUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: WebSocket.Data) => {
+      const accountMessage: MaxAccountMessage = JSON.parse(data.toString());
+
+      if (!accountMessage.e.includes("account")) {
+        return;
+      }
+
+      if (callback) {
+        callback(accountMessage);
       }
     });
   };
@@ -115,7 +135,7 @@ export class MaxWs {
       nonce: timestamp,
       signature: signature,
       id: "frederick",
-      filters: ["order"], // only subscribe to order events
+      filters: ["account", "order"], // only subscribe to order and account events
     };
 
     this.ws.send(JSON.stringify(request));

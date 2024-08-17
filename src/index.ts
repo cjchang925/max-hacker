@@ -250,8 +250,8 @@ class Frederick {
     let maxIdealPrice: number = 0;
 
     if (nowSellingExchange === "MAX") {
-      // 計算 MAX 理想掛單價格，也就是幣安最新價格上方 0.12%
-      maxIdealPrice = parseFloat((price * 1.0012).toFixed(2));
+      // 計算 MAX 理想掛單價格，也就是幣安最新價格上方 0.13%
+      maxIdealPrice = parseFloat((price * 1.0013).toFixed(2));
 
       // 取得 MAX 最佳買價
       const maxBestBid = this.maxWs.getBestBid();
@@ -262,8 +262,8 @@ class Frederick {
         maxIdealPrice = maxBestBid + 0.01;
       }
     } else {
-      // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.12%
-      maxIdealPrice = parseFloat((price * 0.9988).toFixed(2));
+      // 計算 MAX 理想掛單價格，也就是幣安最新價格下方 0.13%
+      maxIdealPrice = parseFloat((price * 0.9987).toFixed(2));
 
       // 取得 MAX 最佳買價
       const maxBestAsk = this.maxWs.getBestAsk();

@@ -350,8 +350,8 @@ class Frederick {
         continue;
       }
 
-      // 如果掛單時間已超過五秒，就需撤單
-      if (Date.now() - order.timestamp >= 5000) {
+      // 如果掛單時間已超過十秒，就需撤單
+      if (Date.now() - order.timestamp >= 10000) {
         maxInvalidOrders.push(order);
         continue;
       }
@@ -374,7 +374,7 @@ class Frederick {
         log(
           `現有掛單價格 ${order.price} 超越套利區間邊界 ${borderPrice.toFixed(
             3
-          )} 或掛單時間超過五秒，撤銷掛單`
+          )} 或掛單時間超過十秒，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
         const direction = nowSellingExchange === "MAX" ? "sell" : "buy";

@@ -12,7 +12,7 @@ import { MaxOrderMessage } from "./interfaces/max-order-message";
  * 目前賣出 BTC 的交易所，決定 XEMM 執行方向
  * 預設先從 MAX 賣出，完成一次 XEMM 後再改由 Binance 賣出，來回切換
  */
-let nowSellingExchange: "MAX" | "Binance" = "Binance";
+let nowSellingExchange: "MAX" | "Binance" = "MAX";
 
 /**
  * Frederick, the agent.
@@ -330,7 +330,7 @@ class Frederick {
   };
 
   /**
-   * 處理 MAX 訂單簿上的掛單，撤銷價格和當前價差不到 0.1% 的單子
+   * 處理 MAX 訂單簿上的掛單，撤銷價格和當前價差小於 0.11% 的單子
    * @param price 幣安最新價格
    */
   private processActiveOrders = async (price: number): Promise<void> => {
@@ -340,7 +340,7 @@ class Frederick {
 
     // 套利區間邊界價格
     const borderPrice =
-      nowSellingExchange === "MAX" ? price * 1.001 : price * 0.999;
+      nowSellingExchange === "MAX" ? price * 1.0011 : price * 0.9989;
 
     const maxInvalidOrders = [];
 
@@ -350,12 +350,13 @@ class Frederick {
         continue;
       }
 
-      // 如果一開始掛單是在套利區間內且現在價格超出套利區間，或是掛單時間已超過十秒，就需撤單
-      if (Date.now() - order.timestamp >= 10000) {
+      // 如果掛單時間已超過五秒，就需撤單
+      if (Date.now() - order.timestamp >= 5000) {
         maxInvalidOrders.push(order);
         continue;
       }
 
+      // 如果價格超出套利區間邊界，就需撤單
       if (
         (nowSellingExchange === "MAX" &&
           parseFloat(order.price) < borderPrice) ||
@@ -373,7 +374,7 @@ class Frederick {
         log(
           `現有掛單價格 ${order.price} 超越套利區間邊界 ${borderPrice.toFixed(
             3
-          )} 或掛單時間超過十秒，撤銷掛單`
+          )} 或掛單時間超過五秒，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
         const direction = nowSellingExchange === "MAX" ? "sell" : "buy";

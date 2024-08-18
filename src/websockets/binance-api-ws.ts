@@ -77,14 +77,19 @@ export class BinanceApiWs {
 
   /**
    * 市價買進
+   * @param symbol 交易對，例如 "BTCUSDT"
    * @param volume 買進數量，不包含手續費
    * @param side "BUY" 表示買進, "SELL" 表示賣出
    */
-  public placeMarketOrder = (volume: string, side: string): void => {
-    log(`開始在幣安以市價單 ${side} ${volume} BTC`);
+  public placeMarketOrder = (
+    symbol: string,
+    volume: string,
+    side: "BUY" | "SELL"
+  ): void => {
+    log(`開始在幣安以市價單 ${side} ${volume} in ${symbol}`);
 
     const params: Record<string, string> = {
-      symbol: "BTCUSDC",
+      symbol,
       side,
       type: "MARKET",
       quantity: volume,
@@ -115,7 +120,7 @@ export class BinanceApiWs {
     };
 
     this.ws.send(JSON.stringify(request));
-  }
+  };
 
   /**
    * 監聽帳戶餘額訊息

@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { MaxSocketMessage } from "../interfaces/max-socket-message";
 import { MaxOrderMessage } from "../interfaces/max-order-message";
 import { MaxAccountMessage } from "../interfaces/max-account-message";
-import { MaxBalance } from "../interfaces/max-balance";
+import { MaxTradeMessage } from "../interfaces/max-trade-message";
 
 export class MaxWs {
   private ws: WebSocket;
@@ -52,9 +52,11 @@ export class MaxWs {
     this.ws.on("message", (data: WebSocket.Data) => {
       const orderMessage: MaxOrderMessage = JSON.parse(data.toString());
 
-      if (orderMessage.e === "order_update") {
-        callback(orderMessage);
+      if (orderMessage.e !== "order_update" || !callback) {
+        return;
       }
+
+      callback(orderMessage);
     });
   };
 
@@ -66,13 +68,27 @@ export class MaxWs {
     this.ws.on("message", (data: WebSocket.Data) => {
       const accountMessage: MaxAccountMessage = JSON.parse(data.toString());
 
-      if (!accountMessage.e.includes("account")) {
+      if (!accountMessage.e.includes("account") || !callback) {
         return;
       }
 
-      if (callback) {
-        callback(accountMessage);
+      callback(accountMessage);
+    });
+  };
+
+  /**
+   * 訂閱 MAX 成交訊息
+   * @param callback 接收成交訊息的函式
+   */
+  public listenToTradeUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: WebSocket.Data) => {
+      const tradeMessage: MaxTradeMessage = JSON.parse(data.toString());
+
+      if (tradeMessage.e !== "trade_update" || !callback) {
+        return;
       }
+
+      callback(tradeMessage);
     });
   };
 
@@ -135,7 +151,7 @@ export class MaxWs {
       nonce: timestamp,
       signature: signature,
       id: "frederick",
-      filters: ["account", "order"], // only subscribe to order and account events
+      filters: ["account", "order", "trade_update"], // subscribe to order, account and trade_update events
     };
 
     this.ws.send(JSON.stringify(request));

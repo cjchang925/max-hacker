@@ -20,6 +20,11 @@ export interface MaxOrder {
   volume: string;
 
   /**
+   * 未成交數量
+   */
+  remainingVolume: string;
+
+  /**
    * 掛單時間
    */
   timestamp: number;

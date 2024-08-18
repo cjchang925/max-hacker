@@ -13,15 +13,16 @@ import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { BinanceRestApi } from "./restapis/binance-restapi";
 import { BinanceAccountResponse } from "./interfaces/binance-account-response";
 import { BinanceBalance } from "./interfaces/binance-balance";
+import { MaxTradeMessage } from "./interfaces/max-trade-message";
 
 /**
  * Frederick, the agent.
  */
 class Frederick {
   /**
-   * 幣安 WebSocket Stream
+   * 幣安 WebSocket Stream，null 表示尚未建立物件
    */
-  private binanceStreamWs: BinanceStreamWs;
+  private binanceStreamWs: BinanceStreamWs | null = null;
 
   /**
    * 幣安 WebSocket API
@@ -93,9 +94,6 @@ class Frederick {
   constructor() {
     dotenv.config();
 
-    this.binanceStreamWs = new BinanceStreamWs();
-    this.binanceStreamWs.connect();
-
     this.binanceApiWs = new BinanceApiWs();
     this.binanceApiWs.connect();
     this.binanceApiWs.listenToOrderUpdate();
@@ -117,7 +115,13 @@ class Frederick {
 
     await sleep(2000);
 
+    // 監聽 MAX 掛單狀態
     this.maxWs.listenToRecentTrade(this.maxOrderUpdateCallback);
+
+    // 監聽 MAX 成交訊息
+    this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCallback);
+
+    // 監聽幣安帳戶餘額
     this.binanceApiWs.listenToAccountUpdate(this.binanceAccountUpdateCallback);
     this.binanceApiWs.getAccountBalance();
 
@@ -126,6 +130,14 @@ class Frederick {
 
     log("已等待兩秒，開始判斷策略方向");
 
+    // 執行 XEMM
+    await this.startXemm();
+  };
+
+  /**
+   * 準備執行 XEMM，包括轉換穩定幣、選擇穩定幣、判斷 XEMM 執行方向
+   */
+  private startXemm = async (): Promise<void> => {
     // 判斷 XEMM 執行方向
     this.determineDirection();
 
@@ -134,10 +146,169 @@ class Frederick {
     // 決定幣安要使用哪一種穩定幣
     await this.selectStableCoin();
 
-    // TODO: 將幣安所有穩定幣轉為 selectStableCoin 選擇的穩定幣
+    if (!this.binanceStableCoin) {
+      throw new Error("尚未選擇穩定幣");
+    }
+
+    this.binanceStreamWs = new BinanceStreamWs(this.binanceStableCoin);
+    this.binanceStreamWs.connect();
+
+    // 等待幣安 Stream WebSocket 連線完成，一秒後再開始執行
+    await sleep(1000);
+
+    // 將幣安所有穩定幣轉為指定的穩定幣
+    this.transferStableCoin();
+
+    // 等待穩定幣轉換完成，1 秒後再開始執行
+    await sleep(1000);
 
     // 監聽幣安最新價格，並在取得價格後呼叫 binanceLatestPriceCallback
-    // this.binanceStreamWs.listenToLatestPrices(this.binanceLatestPriceCallback);
+    this.binanceStreamWs.listenToLatestPrices(this.binanceLatestPriceCallback);
+  };
+
+  /**
+   * 接到 MAX 最新成交訊息後的 callback
+   * @param tradeMessage MAX 最新成交訊息
+   */
+  public maxTradeUpdateCallback = (tradeMessage: MaxTradeMessage): void => {
+    log(`收到 MAX 掛單成交訊息`);
+
+    for (const trade of tradeMessage.t) {
+      const side = trade.sd === "bid" ? "買入" : "賣出";
+
+      log(
+        `MAX ${side}訂單編號 ${trade.oi}，成交價 ${trade.p}，成交量 ${trade.v}`
+      );
+
+      // 根據 MAX 成交方向決定幣安下單方向
+      const direction = trade.sd === "bid" ? "SELL" : "BUY";
+
+      // 在幣安下單 hedge
+      this.binanceApiWs.placeMarketOrder(
+        `BTC${this.binanceStableCoin}`,
+        trade.v,
+        direction
+      );
+
+      // 修改本地的掛單紀錄
+      const orderIndex = this.maxActiveOrders.findIndex(
+        (order) => order.id === trade.oi
+      );
+
+      if (orderIndex === -1) {
+        log(`找不到訂單編號 ${trade.oi} 的掛單紀錄`);
+        continue;
+      }
+
+      const order = this.maxActiveOrders[orderIndex];
+
+      const remainingVolume = +order.remainingVolume - +trade.v;
+
+      if (remainingVolume === 0) {
+        log(`訂單已全部成交，訂單編號 ${order.id}`);
+
+        this.maxActiveOrders.splice(orderIndex, 1);
+
+        if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
+          // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+          this.maxState = MaxState.DEFAULT;
+        }
+
+        continue;
+      }
+
+      order.remainingVolume = remainingVolume.toString();
+    }
+  };
+
+  /**
+   * 將幣安帳戶的穩定幣轉成指定的穩定幣
+   */
+  private transferStableCoin = async (): Promise<void> => {
+    const stableCoins = ["USDT", "USDC", "FDUSD"];
+
+    for (const coin of stableCoins) {
+      if (coin === this.binanceStableCoin) {
+        continue;
+      }
+
+      const balance = this.binanceBalance[coin];
+
+      // 最少要 5 個穩定幣才能下單
+      if (!balance || Math.floor(balance.free) < 5) {
+        log(`${coin} 餘額不足，無法轉換`);
+        continue;
+      }
+
+      if (coin === "USDT") {
+        // 將 USDT 轉為指定穩定幣
+        // 由於幣安交易對下單限制，下單量最小是 0.0001 單位
+        const price = await this.binanceRestApi.getRecentTradePrice(
+          `${this.binanceStableCoin}USDT`
+        );
+
+        const volume = Math.floor(balance.free / price);
+
+        this.binanceApiWs.placeMarketOrder(
+          `${this.binanceStableCoin}USDT`,
+          `${volume}`,
+          "BUY"
+        );
+
+        continue;
+      }
+
+      if (coin === "USDC") {
+        if (this.binanceStableCoin === "USDT") {
+          // 將 USDC 轉為 USDT
+          const volume = Math.floor(balance.free);
+
+          this.binanceApiWs.placeMarketOrder(`USDCUSDT`, `${volume}`, "SELL");
+
+          continue;
+        }
+
+        // 將 USDC 轉為 FDUSD
+        // 由於幣安沒有 USDC/FDUSD 交易對，所以先轉換成 USDT 再轉成 FDUSD
+        const volume = Math.floor(balance.free);
+
+        this.binanceApiWs.placeMarketOrder(`USDCUSDT`, `${volume}`, "SELL");
+
+        const price = await this.binanceRestApi.getRecentTradePrice(
+          `FDUSDUSDT`
+        );
+        const fdusdVolume = Math.floor(volume / price);
+
+        this.binanceApiWs.placeMarketOrder(
+          `FDUSDUSDT`,
+          `${fdusdVolume}`,
+          "BUY"
+        );
+
+        continue;
+      }
+
+      // coin 是 FDUSD
+      if (this.binanceStableCoin === "USDT") {
+        // 將 FDUSD 轉為 USDT
+        const volume = Math.floor(balance.free);
+
+        this.binanceApiWs.placeMarketOrder(`FDUSDUSDT`, `${volume}`, "SELL");
+
+        continue;
+      }
+
+      // 將 FDUSD 轉為 USDC
+      // 由於幣安沒有 FDUSD/USDC 交易對，所以先轉換成 USDT 再轉成 USDC
+      const volume = Math.floor(balance.free);
+
+      this.binanceApiWs.placeMarketOrder(`FDUSDUSDT`, `${volume}`, "SELL");
+
+      const price = await this.binanceRestApi.getRecentTradePrice(`USDCUSDT`);
+      const usdcVolume = Math.floor(volume / price);
+
+      this.binanceApiWs.placeMarketOrder(`USDCUSDT`, `${usdcVolume}`, "BUY");
+    }
   };
 
   /**
@@ -291,76 +462,34 @@ class Frederick {
         continue;
       }
 
-      if (order.S === "wait" || order.S === "done") {
-        if (+order.v === +order.rv) {
-          // 如果已有掛單紀錄或是掛單價格與最新價格紀錄不符就不需處理
-          if (
-            this.orderIdSet.has(order.i) ||
-            parseFloat(order.p) !== this.maxLatestOrderPrice
-          ) {
-            continue;
-          }
-
-          // 新掛單訊息，將新掛單加入有效掛單紀錄
-          this.maxActiveOrders.push({
-            id: order.i,
-            price: order.p,
-            state: order.S,
-            volume: order.v,
-            timestamp: Date.now(),
-          });
-
-          this.orderIdSet.add(order.i);
-
-          log(`掛單成功，訂單編號 ${order.i}`);
-
-          if (this.maxState !== MaxState.SLEEP) {
-            // 將 maxState 改為預設
-            this.maxState = MaxState.DEFAULT;
-          }
-
+      if (order.S === "wait" && +order.v === +order.rv) {
+        // 如果已有掛單紀錄或是掛單價格與最新價格紀錄不符就不需處理
+        if (
+          this.orderIdSet.has(order.i) ||
+          parseFloat(order.p) !== this.maxLatestOrderPrice
+        ) {
           continue;
         }
 
-        log(`收到訂單成交訊息，訂單編號 ${order.i}`);
+        // 新掛單訊息，將新掛單加入有效掛單紀錄
+        this.maxActiveOrders.push({
+          id: order.i,
+          price: order.p,
+          state: order.S,
+          volume: order.v,
+          remainingVolume: order.rv,
+          timestamp: Date.now(),
+        });
 
-        // MAX 已成交數量
-        const executedVolume = order.ev;
+        this.orderIdSet.add(order.i);
 
-        // 如果現在是在 MAX 賣出，就在幣安買入；反之則在幣安賣出
-        const direction = this.nowSellingExchange === "MAX" ? "BUY" : "SELL";
+        log(`掛單成功，訂單編號 ${order.i}`);
 
-        this.binanceApiWs.placeMarketOrder(executedVolume, direction);
-
-        if (+order.ev === +order.v) {
-          log(`訂單已全部成交，訂單編號 ${order.i}`);
-          const orderIndex = this.maxActiveOrders.findIndex(
-            (order_) => order_.id === order.i
-          );
-
-          // 訂單已全部成交，從有效掛單紀錄中移除
-          if (this.cancellingOrderSet.has(order.i)) {
-            this.cancellingOrderSet.delete(order.i);
-          }
-
-          this.maxActiveOrders.splice(orderIndex, 1);
-
-          if (
-            !this.cancellingOrderSet.size &&
-            this.maxState !== MaxState.SLEEP
-          ) {
-            // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
-            this.maxState = MaxState.DEFAULT;
-          }
-        } else {
-          log(`訂單僅部分成交，訂單編號 ${order.i}`);
+        if (this.maxState !== MaxState.SLEEP) {
+          // 將 maxState 改為預設
+          this.maxState = MaxState.DEFAULT;
         }
-
-        continue;
       }
-
-      log(`未知訂單狀態，訂單編號 ${order.i}，內容如下：`);
-      console.log(order);
     }
   };
 
@@ -380,6 +509,9 @@ class Frederick {
     if (this.maxActiveOrders.length || this.maxState !== MaxState.DEFAULT) {
       return;
     }
+
+    // 取得幣安帳戶餘額
+    this.binanceApiWs.getAccountBalance();
 
     // 將狀態改為等待掛單，避免幣安價格變化時重複掛單
     this.maxState = MaxState.PENDING_PLACE_ORDER;
@@ -415,13 +547,33 @@ class Frederick {
 
     this.maxLatestOrderPrice = maxIdealPrice;
 
+    if (!this.binanceStableCoin) {
+      throw new Error("下單時尚未選擇穩定幣");
+    }
+
+    // 計算最大的掛單量，取 MAX BTC 餘額與幣安穩定幣餘額可購買 BTC 的最小值
+    const btcBalance = this.maxBalance["btc"].available;
+    const stableCoinBalance = this.binanceBalance[this.binanceStableCoin].free;
+
+    const maxVolume = Math.min(btcBalance, stableCoinBalance / price);
+
+    if (maxVolume < 0.0002) {
+      log("BTC 餘額或穩定幣餘額不足，無法掛單");
+      await this.changeDirection();
+      return;
+    }
+
+    // 將掛單量無條件捨去到小數點後第四位
+    const adjustedVolume = (Math.floor(maxVolume * 10000) / 10000).toString();
+
     // 掛單
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
       const order = await this.maxRestApi.placeOrder(
         `${maxIdealPrice}`,
-        direction
+        direction,
+        adjustedVolume
       );
 
       // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以三秒後仍未收到掛單訊息就認定掛單成功
@@ -440,32 +592,35 @@ class Frederick {
       }, 3000);
     } catch (error: any) {
       log(`掛單失敗, 錯誤訊息: ${error.message}`);
-
-      this.maxState = MaxState.SLEEP;
-
-      const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-
-      log("第一次撤回所有掛單");
-
-      await this.maxRestApi.clearOrders(direction);
-
-      await sleep(5000);
-
-      log("已等待五秒，再次撤回所有掛單");
-
-      await this.maxRestApi.clearOrders(direction);
-
-      log("撤回掛單完成。由於餘額不足，開始改變策略方向");
-
-      this.nowSellingExchange =
-        this.nowSellingExchange === "MAX" ? "Binance" : "MAX";
-
-      log(`新策略方向：在 ${this.nowSellingExchange} 出售 BTC`);
-
-      log("繼續執行 XEMM");
-
-      this.maxState = MaxState.DEFAULT;
+      await this.changeDirection();
     }
+  };
+
+  /**
+   * 改變 XEMM 執行方向
+   */
+  private changeDirection = async (): Promise<void> => {
+    this.maxState = MaxState.SLEEP;
+
+    const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
+
+    log("第一次撤回所有掛單");
+
+    await this.maxRestApi.clearOrders(direction);
+
+    await sleep(5000);
+
+    log("已等待五秒，再次撤回所有掛單");
+
+    await this.maxRestApi.clearOrders(direction);
+
+    log("撤回掛單完成。由於餘額不足，開始改變策略方向");
+
+    await this.startXemm();
+
+    log("繼續執行 XEMM");
+
+    this.maxState = MaxState.DEFAULT;
   };
 
   /**

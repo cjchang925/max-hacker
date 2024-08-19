@@ -86,13 +86,16 @@ export class BinanceApiWs {
     volume: string,
     side: "BUY" | "SELL"
   ): void => {
-    log(`開始在幣安以市價單 ${side} ${volume} in ${symbol}`);
+    // 將數量無條件捨去到小數點第四位以符合幣安下單的 LOT_SIZE 規定
+    const adjustedVolume = Math.floor(parseFloat(volume) * 10000) / 10000;
+
+    log(`開始在幣安以市價單 ${side} ${adjustedVolume} in ${symbol}`);
 
     const params: Record<string, string> = {
       symbol,
       side,
       type: "MARKET",
-      quantity: volume,
+      quantity: adjustedVolume.toString(),
       timestamp: Date.now().toString(),
     };
 

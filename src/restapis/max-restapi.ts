@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { MaxOrderResponse } from "../interfaces/max-order-response";
 import { MaxOrder } from "../interfaces/max-order";
 import { log } from "../utils/log";
+import { MaxTradesOfOrder } from "../interfaces/max-trades-of-order";
 
 /**
  * MAX Rest API
@@ -204,6 +205,62 @@ export class MaxRestApi {
       log(`撤銷所有 ${side} 掛單成功`);
     } else {
       throw new Error(`撤銷所有 ${side} 掛單失敗`);
+    }
+  };
+
+  /**
+   * 取得訂單成交紀錄
+   * @param orderId 訂單編號
+   * @returns 訂單成交紀錄
+   */
+  public getTradesOfOrder = async (
+    orderId: number
+  ): Promise<MaxTradesOfOrder[]> => {
+    log(`開始取得訂單 ${orderId} 的成交紀錄`);
+
+    let nonce = Date.now();
+
+    const request = {
+      id: orderId,
+      nonce,
+    };
+
+    const paramsToBeSigned = {
+      ...request,
+      path: restapiUrl.max.tradesOfOrder,
+    };
+
+    const payload = Buffer.from(JSON.stringify(paramsToBeSigned)).toString(
+      "base64"
+    );
+
+    const signature = createHmac("sha256", this.secretKey)
+      .update(payload)
+      .digest("hex");
+
+    const response = await fetch(
+      `${restapiUrl.max.baseUrl}${restapiUrl.max.tradesOfOrder}?${qs.stringify(
+        request,
+        {
+          arrayFormat: "brackets",
+        }
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "X-MAX-ACCESSKEY": this.accessKey,
+          "X-MAX-PAYLOAD": payload,
+          "X-MAX-SIGNATURE": signature,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      const trades: MaxTradesOfOrder[] = await response.json();
+      log(`訂單 ${orderId} 的成交紀錄`);
+      return trades;
+    } else {
+      throw new Error(`取得訂單 ${orderId} 的成交紀錄失敗`);
     }
   };
 }

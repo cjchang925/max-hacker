@@ -7,6 +7,7 @@ export const restapiUrl = {
     placeOrder: "/api/v2/orders",
     cancelOrder: "/api/v2/order/delete",
     clearOrders: "/api/v2/orders/clear",
+    tradesOfOrder: "/api/v2/trades/my/of_order",
   },
   binance: {
     baseUrl: "https://api.binance.com",

@@ -14,6 +14,7 @@ import { BinanceRestApi } from "./restapis/binance-restapi";
 import { BinanceAccountResponse } from "./interfaces/binance-account-response";
 import { BinanceBalance } from "./interfaces/binance-balance";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
+import { MaxTradesOfOrder } from "./interfaces/max-trades-of-order";
 
 /**
  * Frederick, the agent.
@@ -91,6 +92,11 @@ class Frederick {
    */
   private binanceBalance: Record<string, BinanceBalance> = {};
 
+  /**
+   * MAX 掛單成交紀錄
+   */
+  private maxTradesOfOrderMap: Map<number, MaxTradesOfOrder[]> = new Map();
+
   constructor() {
     dotenv.config();
 
@@ -119,7 +125,8 @@ class Frederick {
     this.maxWs.listenToRecentTrade(this.maxOrderUpdateCallback);
 
     // 監聽 MAX 成交訊息
-    this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCallback);
+    // 目前暫時不用 Socket 監聽，改用 Rest API 輪詢，看看會不會比較穩定
+    // this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCallback);
 
     // 監聽幣安帳戶餘額
     this.binanceApiWs.listenToAccountUpdate(this.binanceAccountUpdateCallback);
@@ -132,6 +139,9 @@ class Frederick {
 
     // 執行 XEMM
     await this.startXemm();
+
+    // 每秒檢查 MAX 掛單成交狀態
+    setInterval(this.checkTradesOfMaxOrders, 1000);
   };
 
   /**
@@ -164,6 +174,72 @@ class Frederick {
 
     // 監聽幣安最新價格，並在取得價格後呼叫 binanceLatestPriceCallback
     this.binanceStreamWs.listenToLatestPrices(this.binanceLatestPriceCallback);
+  };
+
+  /**
+   * 檢查 MAX 掛單成交狀態
+   */
+  private checkTradesOfMaxOrders = async (): Promise<void> => {
+    if (!this.maxActiveOrders.length) {
+      return;
+    }
+
+    for (const order of this.maxActiveOrders) {
+      const tradesOfOrder = await this.maxRestApi.getTradesOfOrder(order.id);
+
+      // 已有成交紀錄，檢查是否有新成交，如果沒有紀錄就是空陣列
+      const lastTradesOfOrder = this.maxTradesOfOrderMap.get(order.id) || [];
+
+      const newTrades = tradesOfOrder.slice(lastTradesOfOrder.length);
+
+      // 更新成交紀錄
+      this.maxTradesOfOrderMap.set(order.id, tradesOfOrder);
+
+      if (!newTrades.length) {
+        // 沒有新成交
+        continue;
+      }
+
+      log(`訂單 ${order.id} 有新的成交紀錄，成交量 ${newTrades[0].volume}`);
+
+      // 在幣安 hedge
+      const direction = this.nowSellingExchange === "MAX" ? "BUY" : "SELL";
+
+      for (const trade of newTrades) {
+        this.binanceApiWs.placeMarketOrder(
+          `BTC${this.binanceStableCoin}`,
+          trade.volume,
+          direction
+        );
+      }
+
+      // 修改本地的掛單紀錄
+      const remainingVolume = +order.remainingVolume - +newTrades[0].volume;
+
+      if (remainingVolume) {
+        order.remainingVolume = remainingVolume.toString();
+        log(`訂單 ${order.id} 部分成交，剩餘掛單量 ${order.remainingVolume}`);
+        continue;
+      }
+
+      log(`訂單已全部成交，訂單編號 ${order.id}`);
+
+      const orderIndex = this.maxActiveOrders.findIndex(
+        (order) => order.id === order.id
+      );
+
+      if (orderIndex === -1) {
+        log(`找不到訂單編號 ${order.id} 的掛單紀錄`);
+        continue;
+      }
+
+      this.maxActiveOrders.splice(orderIndex, 1);
+
+      if (!this.cancellingOrderSet.size && this.maxState !== MaxState.SLEEP) {
+        // 如果沒有要撤的單，就將 maxState 改為預設以便掛新單
+        this.maxState = MaxState.DEFAULT;
+      }
+    }
   };
 
   /**

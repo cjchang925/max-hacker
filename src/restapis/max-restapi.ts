@@ -216,8 +216,6 @@ export class MaxRestApi {
   public getTradesOfOrder = async (
     orderId: number
   ): Promise<MaxTradesOfOrder[]> => {
-    log(`開始取得訂單 ${orderId} 的成交紀錄`);
-
     let nonce = Date.now();
 
     const request = {
@@ -257,7 +255,6 @@ export class MaxRestApi {
 
     if (response.status === 200) {
       const trades: MaxTradesOfOrder[] = await response.json();
-      log(`訂單 ${orderId} 的成交紀錄`);
       return trades;
     } else {
       throw new Error(`取得訂單 ${orderId} 的成交紀錄失敗`);

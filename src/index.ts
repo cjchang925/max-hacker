@@ -68,7 +68,7 @@ class Frederick {
   /**
    * 幣安使用的穩定幣，null 表示尚未決定
    */
-  private binanceStableCoin: string | null = null;
+  private binanceStableCoin: string | null = "USDT";
 
   /**
    * 目前賣出 BTC 的交易所，決定 XEMM 執行方向
@@ -125,8 +125,7 @@ class Frederick {
     this.maxWs.listenToRecentTrade(this.maxOrderUpdateCallback);
 
     // 監聽 MAX 成交訊息
-    // 目前暫時不用 Socket 監聽，改用 Rest API 輪詢，看看會不會比較穩定
-    // this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCallback);
+    this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCallback);
 
     // 監聽幣安帳戶餘額
     this.binanceApiWs.listenToAccountUpdate(this.binanceAccountUpdateCallback);
@@ -141,7 +140,7 @@ class Frederick {
     await this.startXemm();
 
     // 每秒檢查 MAX 掛單成交狀態
-    setInterval(this.checkTradesOfMaxOrders, 1000);
+    // setInterval(this.checkTradesOfMaxOrders, 1000);
   };
 
   /**
@@ -153,14 +152,14 @@ class Frederick {
 
     log(`目前策略方向：在 ${this.nowSellingExchange} 出售 BTC`);
 
-    // 決定幣安要使用哪一種穩定幣
-    await this.selectStableCoin();
+    // // 決定幣安要使用哪一種穩定幣
+    // await this.selectStableCoin();
 
-    if (!this.binanceStableCoin) {
-      throw new Error("尚未選擇穩定幣");
-    }
+    // if (!this.binanceStableCoin) {
+    //   throw new Error("尚未選擇穩定幣");
+    // }
 
-    this.binanceStreamWs = new BinanceStreamWs(this.binanceStableCoin);
+    this.binanceStreamWs = new BinanceStreamWs();
     this.binanceStreamWs.connect();
 
     // 等待幣安 Stream WebSocket 連線完成，一秒後再開始執行

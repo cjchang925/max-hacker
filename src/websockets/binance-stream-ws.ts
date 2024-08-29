@@ -6,20 +6,9 @@ import { BinanceTrade } from "../interfaces/binance-trade";
 export class BinanceStreamWs {
   private ws: WebSocket;
 
-  constructor(stableCoin: string) {
-    switch (stableCoin) {
-      case "USDT":
-        this.ws = new WebSocket(websocketUrl.binance.stream.btcusdtTrade);
-        break;
-      case "USDC":
-        this.ws = new WebSocket(websocketUrl.binance.stream.btcusdcTrade);
-        break;
-      case "FDUSD":
-        this.ws = new WebSocket(websocketUrl.binance.stream.btcfdusdTrade);
-        break;
-      default:
-        throw new Error("不支援的穩定幣");
-    }
+  constructor() {
+    // this.ws = new WebSocket(websocketUrl.binance.stream.btcusdtTrade);
+    this.ws = new WebSocket(websocketUrl.binance.stream.bnbusdcTrade);
   }
 
   /**

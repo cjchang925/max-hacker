@@ -19,12 +19,18 @@ const main = () => {
     const maxBestBidDiff = (maxBestBid - latestTradePrice) / latestTradePrice;
 
     if (maxBestAskDiff > 0.0011625) {
-      log(`MAX 賣出，幣安買入：${maxBestAskDiff * 100}%`);
+      log(`市價單套利 MAX 賣出，幣安買入：${maxBestAskDiff * 100}%`);
+      log("-----");
+    } else if (maxBestAskDiff > 0.0006325) {
+      log(`XEMM MAX 賣出，幣安買入：${maxBestAskDiff * 100}%`);
       log("-----");
     }
 
     if (maxBestBidDiff > 0.0011625) {
-      log(`MAX 買入，幣安賣出：${maxBestBidDiff * 100}%`);
+      log(`市價單套利 MAX 買入，幣安賣出：${maxBestBidDiff * 100}%`);
+      log("-----");
+    } else if (maxBestBidDiff > 0.0006325) {
+      log(`XEMM MAX 買入，幣安賣出：${maxBestBidDiff * 100}%`);
       log("-----");
     }
   });

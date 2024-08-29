@@ -6,6 +6,6 @@ import "moment-timezone";
  * @param message 訊息
  */
 export const log = (message: string) => {
-  const now = moment().tz("Asia/Taipei").format("YYYY-MM-DD HH:mm:ss.SSS");
+  const now = moment().tz("America/Chicago").format("YYYY-MM-DD HH:mm:ss.SSS");
   console.log(`[${now}] INFO ${message}`);
 };

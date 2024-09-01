@@ -108,7 +108,6 @@ class Frederick {
 
     this.maxWs = new MaxWs();
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCallback);
-    this.maxWs.connectAndAuthenticate();
 
     this.maxRestApi = new MaxRestApi();
   }
@@ -589,7 +588,7 @@ class Frederick {
     this.binanceApiWs.getAccountBalance();
 
     // 將狀態改為等待掛單，避免幣安價格變化時重複掛單
-    this.maxState = MaxState.PENDING_PLACE_ORDER;
+    this.maxState = MaxState.PLACING_ORDER;
 
     // MAX 理想掛單價格，根據當前策略方向有不同算法
     let maxIdealPrice: number = 0;
@@ -654,7 +653,7 @@ class Frederick {
       // 由於 MAX 偶爾會忘記回傳掛單成功的訊息，所以三秒後仍未收到掛單訊息就認定掛單成功
       setTimeout(() => {
         if (
-          this.maxState === MaxState.PENDING_PLACE_ORDER &&
+          this.maxState === MaxState.PLACING_ORDER &&
           !this.orderIdSet.has(order.id)
         ) {
           this.maxActiveOrders.push(order);
@@ -737,7 +736,7 @@ class Frederick {
     }
 
     if (maxInvalidOrders.length) {
-      this.maxState = MaxState.PENDING_CANCEL_ORDER;
+      this.maxState = MaxState.CANCELLING_ORDER;
 
       for (const order of maxInvalidOrders) {
         log(
@@ -746,8 +745,7 @@ class Frederick {
           )} 或掛單時間超過十秒，撤銷掛單`
         );
         this.cancellingOrderSet.add(order.id);
-        const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-        this.maxRestApi.cancelOrder(order.id, direction);
+        this.maxRestApi.cancelOrder(order.id);
 
         setTimeout(() => {
           if (this.cancellingOrderSet.has(order.id)) {

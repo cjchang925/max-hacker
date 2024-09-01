@@ -13,4 +13,8 @@ export const restapiUrl = {
     baseUrl: "https://api.binance.com",
     recentTrades: "/api/v3/trades",
   },
+  gateio: {
+    baseUrl: "https://api.gateio.ws",
+    balances: "/api/v4/spot/accounts",
+  },
 };

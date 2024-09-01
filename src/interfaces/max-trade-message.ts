@@ -1,48 +1,48 @@
 /**
- * MAX 成交訊息
+ * MAX trade message
  */
 export interface MaxTradeMessage {
   /**
-   * 事件
+   * event
    */
   e: string;
 
   /**
-   * 成交訊息
+   * trades
    */
   t: {
     /**
-     * 成交編號
+     * trades ID
      */
     i: number;
 
     /**
-     * 交易對
+     * trading pair
      */
     M: string;
 
     /**
-     * 成交方向，bid 表示買單，ask 表示賣單
+     * side, bid means it is a buy order, ask means it is a sell order
      */
     sd: "bid" | "ask";
 
     /**
-     * 成交價格
+     * price
      */
     p: string;
 
     /**
-     * 成交量
+     * volume
      */
     v: string;
 
     /**
-     * 是否為 maker 單
+     * whether it is a maker order
      */
     m: boolean;
 
     /**
-     * 掛單編號
+     * order ID
      */
     oi: number;
   }[];

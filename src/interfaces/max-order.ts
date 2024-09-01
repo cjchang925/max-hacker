@@ -1,31 +1,34 @@
+/**
+ * Max order information
+ */
 export interface MaxOrder {
   /**
-   * 訂單編號
+   * Order ID
    */
   id: number;
 
   /**
-   * 掛單價格
+   * Order price
    */
   price: string;
 
   /**
-   * 掛單狀態
+   * Order state
    */
   state: "wait" | "cancel" | "done";
 
   /**
-   * 掛單數量
+   * Order volume
    */
   volume: string;
 
   /**
-   * 未成交數量
+   * Remaining volume
    */
   remainingVolume: string;
 
   /**
-   * 掛單時間
+   * Current timestamp
    */
   timestamp: number;
 }

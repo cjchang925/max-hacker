@@ -1,28 +1,28 @@
 /**
- * MAX 帳戶餘額訊息
+ * MAX balance message
  */
 export interface MaxAccountMessage {
   /**
-   * 事件
+   * event
    */
   e: string;
 
   /**
-   * 各幣種餘額
+   * balances
    */
   B: {
     /**
-     * 幣種
+     * currency
      */
     cu: string;
 
     /**
-     * 可用餘額
+     * available balance
      */
     av: string;
 
     /**
-     * 已鎖定餘額
+     * locked balance
      */
     l: string;
   }[];

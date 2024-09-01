@@ -1,43 +1,43 @@
 /**
- * MAX 訂單訊息
+ * MAX order message
  */
 export interface MaxOrderMessage {
   /**
-   * 事件
+   * event
    */
   e: string;
 
   /**
-   * 訂單資訊
+   * order
    */
   o: {
     /**
-     * 訂單編號
+     * ID
      */
     i: number;
 
     /**
-     * 掛單價格
+     * price
      */
     p: string;
 
     /**
-     * 掛單量
+     * volume
      */
     v: string;
 
     /**
-     * 未成交量
+     * remaining volume
      */
     rv: string;
 
     /**
-     * 已成交量
+     * executed volume
      */
     ev: string;
 
     /**
-     * 訂單狀態
+     * state
      */
     S: string;
   }[];

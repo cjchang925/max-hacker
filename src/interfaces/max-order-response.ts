@@ -1,49 +1,49 @@
 /**
- * MAX 掛單和撤單的回應
+ * MAX order response
  */
 export interface MaxOrderResponse {
   /**
-   * 請求是否成功，若成功不會有這個欄位
+   * Whether the request is successful. Only exists when the request fails.
    */
   success?: boolean;
 
   /**
-   * 錯誤內容
+   * Error message. Only exists when the request fails.
    */
   error?: {
     /**
-     * 錯誤代碼
+     * Error code
      */
     code: number;
 
     /**
-     * 錯誤訊息
+     * Error message
      */
     message: string;
   };
 
   /**
-   * 訂單編號
+   * Order ID
    */
   id?: number;
 
   /**
-   * 掛單價格
+   * Order price
    */
   price?: string;
 
   /**
-   * 訂單狀態
+   * Order state
    */
   state?: 'wait' | 'cancel' | 'done';
 
   /**
-   * 掛單數量
+   * Order volume
    */
   volume?: string;
 
   /**
-   * 未成交的數量
+   * Remaining volume
    */
   remaining_volume?: string;
 }

@@ -267,8 +267,7 @@ class Xemm {
 
     for (const order of maxInvalidOrders) {
       log(`Start cancelling order with ID ${order.id}`);
-      const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-      this.maxRestApi.cancelOrder(order.id, direction);
+      this.maxRestApi.cancelOrder(order.id);
     }
   };
 

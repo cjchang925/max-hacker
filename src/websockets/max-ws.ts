@@ -9,6 +9,9 @@ import { MaxAccountMessage } from "../interfaces/max-account-message";
 import { MaxTradeMessage } from "../interfaces/max-trade-message";
 
 export class MaxWs {
+  /**
+   * MAX WebSocket instance
+   */
   private ws: WebSocket;
 
   /**
@@ -22,14 +25,14 @@ export class MaxWs {
   private secretKey: string;
 
   /**
-   * MAX 最佳買價
+   * Best bid price
    */
-  private maxBestBid: number | null = null;
+  private bestBid: number | null = null;
 
   /**
-   * MAX 最佳賣價
+   * Best ask price
    */
-  private maxBestAsk: number | null = null;
+  private bestAsk: number | null = null;
 
   constructor() {
     dotenv.config();
@@ -38,15 +41,26 @@ export class MaxWs {
     this.secretKey = process.env.MAX_SECRET_KEY || "";
 
     if (!this.accessKey || !this.secretKey) {
-      throw new Error("找不到 MAX API Key");
+      throw new Error("MAX API Key is not set in .env");
     }
 
     this.ws = new WebSocket(websocketUrl.max);
+
+    this.ws.on("open", () => {
+      log("Connected to MAX WebSocket");
+      this.authenticate();
+      this.subscribeOrderBook();
+
+      // Ping-Pong to keep the connection alive
+      setInterval(() => {
+        this.ws.ping("test");
+      }, 60000);
+    });
   }
 
   /**
-   * 監聽 MAX 最新成交並呼叫 callback
-   * @param callback 根據最新成交採取行動的函式
+   * Monitor the latest trades on MAX and call the callback
+   * @param callback Hedge on Gate.io if any trade happens on MAX
    */
   public listenToRecentTrade = (callback: Function): void => {
     this.ws.on("message", (data: WebSocket.Data) => {
@@ -61,8 +75,8 @@ export class MaxWs {
   };
 
   /**
-   * 訂閱 MAX 帳戶餘額資訊
-   * @param callback 接收帳戶餘額資訊的函式
+   * Listen to account balance updates
+   * @param callback Callback function to handle account balance updates
    */
   public listenToAccountUpdate = (callback: Function): void => {
     this.ws.on("message", (data: WebSocket.Data) => {
@@ -77,8 +91,8 @@ export class MaxWs {
   };
 
   /**
-   * 訂閱 MAX 成交訊息
-   * @param callback 接收成交訊息的函式
+   * Listen to trade updates
+   * @param callback Callback function to handle trade updates
    */
   public listenToTradeUpdate = (callback: Function): void => {
     this.ws.on("message", (data: WebSocket.Data) => {
@@ -93,52 +107,31 @@ export class MaxWs {
   };
 
   /**
-   * 取得 MAX 最佳買價
-   * @returns MAX 最佳買價
+   * Get the best bid price on MAX
+   * @returns MAX best bid price
    */
   public getBestBid = (): number => {
-    if (this.maxBestBid === null) {
-      throw new Error("MAX 最佳買價尚未取得");
+    if (this.bestBid === null) {
+      throw new Error("The best bid price on MAX is not available");
     }
 
-    return this.maxBestBid;
+    return this.bestBid;
   };
 
   /**
-   * 取得 MAX 最佳賣價
-   * @returns MAX 最佳賣價
+   * Get the best ask price on MAX
+   * @returns MAX best ask price
    */
   public getBestAsk = (): number => {
-    if (this.maxBestAsk === null) {
-      throw new Error("MAX 最佳賣價尚未取得");
+    if (this.bestAsk === null) {
+      throw new Error("The best ask price on MAX is not available");
     }
 
-    return this.maxBestAsk;
+    return this.bestAsk;
   };
 
   /**
-   * 連上 WebSocket server
-   */
-  public connectAndAuthenticate = (): void => {
-    // 建立 WebSocket 連線
-    this.ws.on("open", () => {
-      log("已連上 MAX WebSocket");
-
-      // 取得授權
-      this.authenticate();
-
-      // 訂閱訂單簿
-      this.subscribeOrderBook();
-
-      // Ping-Pong 以維持連線
-      setInterval(() => {
-        this.ws.ping("test");
-      }, 60000);
-    });
-  };
-
-  /**
-   * 取得 MAX WebSocket 授權
+   * Authenticate the connection to MAX WebSocket
    */
   private authenticate = () => {
     const timestamp = Date.now();
@@ -151,14 +144,14 @@ export class MaxWs {
       nonce: timestamp,
       signature: signature,
       id: "frederick",
-      filters: ["account", "order", "trade_update"], // subscribe to order, account and trade_update events
+      filters: ["account", "order", "trade_update"],
     };
 
     this.ws.send(JSON.stringify(request));
   };
 
   /**
-   * 訂閱 MAX 訂單簿最新資訊
+   * Subscribe to the order book on MAX
    */
   private subscribeOrderBook = (): void => {
     const request = {
@@ -166,8 +159,7 @@ export class MaxWs {
       subscriptions: [
         {
           channel: "book",
-          // market: "btcusdt",
-          market: "bnbusdt",
+          market: "btcusdt",
           depth: 1,
         },
       ],
@@ -191,13 +183,12 @@ export class MaxWs {
 
       if (book.e === "snapshot") {
         try {
-          this.maxBestAsk = parseFloat(book.a[0][0]);
-          this.maxBestBid = parseFloat(book.b[0][0]);
+          this.bestAsk = parseFloat(book.a[0][0]);
+          this.bestBid = parseFloat(book.b[0][0]);
         } catch (error) {
-          log(`讀取 snapshot 訊息發生錯誤，訊息內容：`);
+          log(`Cannot parse the order book snapshot`);
           console.log(book);
-          log(`錯誤訊息：`);
-          console.log(error);
+          log(`Error: ${error}`);
         }
 
         return;
@@ -207,7 +198,7 @@ export class MaxWs {
         for (const ask of book.a) {
           const volume = parseFloat(ask[1]);
           if (volume !== 0) {
-            this.maxBestAsk = parseFloat(ask[0]);
+            this.bestAsk = parseFloat(ask[0]);
           }
         }
       }
@@ -216,7 +207,7 @@ export class MaxWs {
         for (const bid of book.b) {
           const volume = parseFloat(bid[1]);
           if (volume !== 0) {
-            this.maxBestBid = parseFloat(bid[0]);
+            this.bestBid = parseFloat(bid[0]);
           }
         }
       }

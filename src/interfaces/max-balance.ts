@@ -1,14 +1,14 @@
 /**
- * MAX 帳戶餘額
+ * MAX account balance
  */
 export interface MaxBalance {
   /**
-   * 可用餘額
+   * available balance
    */
   available: number;
 
   /**
-   * 已鎖定餘額
+   * locked balance
    */
   locked: number;
 }

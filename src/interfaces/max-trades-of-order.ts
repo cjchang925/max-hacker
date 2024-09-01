@@ -1,24 +1,24 @@
 /**
- * MAX 掛單成交回應
+ * MAX trades of order
  */
 export interface MaxTradesOfOrder {
   /**
-   * 成交價格
+   * price
    */
   price: string;
 
   /**
-   * 成交量
+   * volume
    */
   volume: string;
 
   /**
-   * 成交方向
+   * side
    */
   side: "bid" | "ask";
 
   /**
-   * 掛單編號
+   * order ID
    */
   order_id: number;
 }

@@ -1,6 +1,6 @@
 /**
- * 等待指定時間
- * @param ms 等待時間（毫秒）
+ * Wait certain time.
+ * @param ms time to wait in milliseconds
  */
 export const sleep = (ms: number): Promise<void> => {
   return new Promise((resolve) => {

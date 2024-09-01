@@ -33,20 +33,20 @@ export class MaxRestApi {
   }
 
   /**
-   * 掛單
-   * @param price 掛單的價格
-   * @param side "buy" 表示買進, "sell" 表示賣出
-   * @param volume 掛單的數量
-   * @returns 掛單編號
+   * Place a limit order
+   * @param price price to place
+   * @param side "buy" or "sell"
+   * @param volume volume to place
+   * @returns ID of the placed order
    */
   public placeOrder = async (
     price: string,
     side: "buy" | "sell",
     volume: string
   ): Promise<MaxOrder> => {
-    log(`開始掛單，價格：${price}，數量：${volume}`);
+    log(`Start to place order at price ${price} with volume ${volume}`);
 
-    let nonce = Date.now();
+    const nonce = Date.now();
 
     const request = {
       market: "btcusdt",
@@ -104,17 +104,13 @@ export class MaxRestApi {
   };
 
   /**
-   * 撤單
-   * @param id 要撤單的訂單編號
-   * @param side "buy" 表示撤掉買單, "sell" 表示撤掉賣單
+   * Cancel an order
+   * @param id ID of the order to cancel
    */
-  public cancelOrder = async (
-    id: number,
-    side: "buy" | "sell"
-  ): Promise<void> => {
-    log(`開始撤單，訂單編號：${id}`);
+  public cancelOrder = async (id: number): Promise<void> => {
+    log(`Start to cancel order ${id}`);
 
-    let nonce = Date.now();
+    const nonce = Date.now();
 
     const request = {
       id,
@@ -157,13 +153,13 @@ export class MaxRestApi {
   };
 
   /**
-   * 撤銷所有 MAX 掛單
-   * @param side 掛單方向
+   * Clear all orders
+   * @param side "buy" or "sell"
    */
   public clearOrders = async (side: "buy" | "sell"): Promise<void> => {
-    log(`開始撤銷所有 MAX ${side} 掛單`);
+    log(`Start to clear ${side} orders on MAX`);
 
-    let nonce = Date.now();
+    const nonce = Date.now();
 
     const request = {
       market: "btcusdt",
@@ -202,16 +198,16 @@ export class MaxRestApi {
     );
 
     if (response.status === 200) {
-      log(`撤銷所有 ${side} 掛單成功`);
+      log(`Successfully cleared ${side} orders on MAX`);
     } else {
-      throw new Error(`撤銷所有 ${side} 掛單失敗`);
+      throw new Error(`Failed to clear ${side} orders on MAX`);
     }
   };
 
   /**
-   * 取得訂單成交紀錄
-   * @param orderId 訂單編號
-   * @returns 訂單成交紀錄
+   * Get trades of an order
+   * @param orderId order ID
+   * @returns trades of the order
    */
   public getTradesOfOrder = async (
     orderId: number
@@ -257,7 +253,7 @@ export class MaxRestApi {
       const trades: MaxTradesOfOrder[] = await response.json();
       return trades;
     } else {
-      throw new Error(`取得訂單 ${orderId} 的成交紀錄失敗`);
+      throw new Error(`Failed to get the trade records of ${orderId}`);
     }
   };
 }

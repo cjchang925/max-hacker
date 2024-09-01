@@ -21,7 +21,18 @@ export class MaxRestApi {
    */
   private secretKey: string;
 
-  constructor() {
+  /**
+   * The base crypto for XEMM
+   */
+  private crypto: Record<string, string> | null = null;
+
+  constructor(crypto: Record<string, string>) {
+    this.crypto = crypto;
+
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     dotenv.config();
 
     this.accessKey = process.env.MAX_ACCESS_KEY || "";
@@ -48,8 +59,12 @@ export class MaxRestApi {
 
     const nonce = Date.now();
 
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     const request = {
-      market: "btcusdt",
+      market: `${this.crypto.lowercase}usdt`,
       side,
       volume, // Precision: 6
       price,
@@ -161,8 +176,12 @@ export class MaxRestApi {
 
     const nonce = Date.now();
 
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     const request = {
-      market: "btcusdt",
+      market: `${this.crypto.lowercase}usdt`,
       side,
       nonce,
     };

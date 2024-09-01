@@ -26,7 +26,18 @@ export class GateioWs {
    */
   private bestAsk: number | null = null;
 
-  constructor() {
+  /**
+   * The base crypto for XEMM
+   */
+  private crypto: Record<string, string> | null = null;
+
+  constructor(crypto: Record<string, string>) {
+    this.crypto = crypto;
+
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     dotenv.config();
     this.ws = new WebSocket(websocketUrl.gateio);
 
@@ -63,13 +74,17 @@ export class GateioWs {
         })
       );
 
-      // Subscribe to BTC/USDT order book for best bid & ask
+      if (!this.crypto) {
+        throw new Error("Crypto is not set");
+      }
+
+      // Subscribe to crypto/USDT order book for best bid & ask
       this.ws.send(
         JSON.stringify({
           time,
           channel: "spot.book_ticker",
           event: "subscribe",
-          payload: ["BTC_USDT"],
+          payload: [`${this.crypto.upperCase}_USDT`],
         })
       );
 
@@ -143,6 +158,10 @@ export class GateioWs {
    * @param amount amount of order
    */
   private placeMarketOrder = (side: "buy" | "sell", amount: string): void => {
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     this.ws.send(
       JSON.stringify({
         time: Math.floor(Date.now() / 1000),
@@ -152,7 +171,7 @@ export class GateioWs {
           req_id: "1",
           req_param: {
             text: "t-my-custom-id",
-            currency_pair: "BTC_USDT",
+            currency_pair: `${this.crypto.upperCase}_USDT`,
             type: "market",
             account: "spot",
             side,
@@ -167,7 +186,7 @@ export class GateioWs {
   /**
    * Adjust amount and then place a market order
    * @param side "buy" or "sell"
-   * @param amount BTC amount. For a buy order, this method converts it to USDT.
+   * @param amount Crypto amount. For a buy order, this method converts it to USDT.
    */
   public adjustAndPlaceMarketOrder = (
     side: "buy" | "sell",
@@ -175,19 +194,19 @@ export class GateioWs {
   ): void => {
     if (side === "sell") {
       // Adjust the amount to 5 decimal places
-      const btcAmount = parseFloat(amount).toFixed(5);
-      this.placeMarketOrder(side, btcAmount);
+      const cryptoAmount = parseFloat(amount).toFixed(5);
+      this.placeMarketOrder(side, cryptoAmount);
       return;
     }
 
-    // Convert BTC to USDT
-    const btcToUsdt = this.bestAsk;
-    if (!btcToUsdt) {
+    // Convert crypto to USDT
+    const cryptoToUsdt = this.bestAsk;
+    if (!cryptoToUsdt) {
       log("Error: bestAsk is not available");
       return;
     }
 
-    const usdtAmount = (parseFloat(amount) * btcToUsdt).toFixed(2);
+    const usdtAmount = (parseFloat(amount) * cryptoToUsdt).toFixed(2);
     this.placeMarketOrder(side, usdtAmount);
   };
 }

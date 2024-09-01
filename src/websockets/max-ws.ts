@@ -34,7 +34,18 @@ export class MaxWs {
    */
   private bestAsk: number | null = null;
 
-  constructor() {
+  /**
+   * The base crypto for XEMM
+   */
+  private crypto: Record<string, string> | null = null;
+
+  constructor(_crypto: Record<string, string>) {
+    this.crypto = _crypto;
+
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     dotenv.config();
 
     this.accessKey = process.env.MAX_ACCESS_KEY || "";
@@ -154,16 +165,20 @@ export class MaxWs {
    * Subscribe to the order book on MAX
    */
   private subscribeOrderBook = (): void => {
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
     const request = {
       action: "sub",
       subscriptions: [
         {
           channel: "book",
-          market: "btcusdt",
+          market: `${this.crypto.lowercase}usdt`,
           depth: 1,
         },
       ],
-      id: "btcusdt-order-book",
+      id: `${this.crypto.lowercase}usdt-order-book`,
     };
 
     this.ws.send(JSON.stringify(request));

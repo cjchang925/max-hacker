@@ -59,24 +59,32 @@ class Xemm {
   private maxBalance: Record<string, MaxBalance> = {};
 
   /**
-   * The exchange that is currently selling BTC,
+   * The exchange that is currently selling crypto,
    * determines the direction of XEMM execution.
    * "null" means the program has just started running
    * and has not yet decided on the direction of XEMM execution.
    */
   private nowSellingExchange: "MAX" | "Gate.io" | null = null;
 
+  /**
+   * The base crypto for XEMM
+   */
+  private crypto = {
+    upperCase: "SOL",
+    lowercase: "sol",
+  };
+
   constructor() {
     dotenv.config();
 
-    this.maxWs = new MaxWs();
+    this.maxWs = new MaxWs(this.crypto);
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
     this.maxWs.listenToRecentTrade(this.maxOrderUpdateCb);
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
 
-    this.maxRestApi = new MaxRestApi();
+    this.maxRestApi = new MaxRestApi(this.crypto);
 
-    this.gateioWs = new GateioWs();
+    this.gateioWs = new GateioWs(this.crypto);
     this.gateioWs.listenToBalanceUpdate(this.gateioBalanceUpdateCb);
 
     this.gateioRestApi = new GateioRestApi();
@@ -98,25 +106,25 @@ class Xemm {
 
   /**
    * Determine the direction of XEMM execution.
-   * If the total value of BTC on MAX is greater than that of USDT, sell on MAX;
+   * If the total value of crypto on MAX is greater than that of USDT, sell on MAX;
    * otherwise, sell on Gate.io
    */
   private determineDirection = (): void => {
-    const btcBalance = this.maxBalance["btc"];
+    const cryptoBalance = this.maxBalance[this.crypto.lowercase];
     const usdtBalance = this.maxBalance["usdt"];
 
-    if (!btcBalance || !usdtBalance) {
-      throw new Error("BTC or USDT balance is not found");
+    if (!cryptoBalance || !usdtBalance) {
+      throw new Error(`${this.crypto.upperCase} or USDT balance is not found`);
     }
 
-    const maxBtcValue = btcBalance.available + btcBalance.locked;
+    const maxCryptoValue = cryptoBalance.available + cryptoBalance.locked;
     const maxUsdtValue = usdtBalance.available + usdtBalance.locked;
 
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
     const maxMidPrice = (maxBestBid + maxBestAsk) / 2;
 
-    if (maxBtcValue * maxMidPrice >= maxUsdtValue) {
+    if (maxCryptoValue * maxMidPrice >= maxUsdtValue) {
       this.nowSellingExchange = "MAX";
     } else {
       this.nowSellingExchange = "Gate.io";
@@ -171,19 +179,19 @@ class Xemm {
     let amount: number | null = null;
 
     if (this.nowSellingExchange === "MAX") {
-      const maxBTCBalance = this.maxBalance["btc"].available;
+      const maxCryptoBalance = this.maxBalance[this.crypto.lowercase].available;
       const gateioUSDTBalance = this.gateioBalances.USDT;
 
-      amount = Math.min(maxBTCBalance, gateioUSDTBalance / price);
+      amount = Math.min(maxCryptoBalance, gateioUSDTBalance / price);
     } else {
       const maxUSDTBalance = this.maxBalance["usdt"].available;
-      const gateioBTCBalance = this.gateioBalances.BTC;
+      const gateioCryptoBalance = this.gateioBalances[this.crypto.upperCase];
 
-      amount = Math.min(maxUSDTBalance / price, gateioBTCBalance);
+      amount = Math.min(maxUSDTBalance / price, gateioCryptoBalance);
     }
 
     if (amount < 0.0002) {
-      log("BTC balance is not enough to place an order");
+      log(`${this.crypto.upperCase} balance is not enough to place an order`);
       await this.reverseDirection();
       return;
     }

@@ -79,7 +79,7 @@ class Xemm {
 
     this.maxWs = new MaxWs(this.crypto);
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
-    this.maxWs.listenToRecentTrade(this.maxOrderUpdateCb);
+    this.maxWs.listenToOrderUpdate(this.maxOrderUpdateCb);
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
 
     this.maxRestApi = new MaxRestApi(this.crypto);
@@ -196,27 +196,33 @@ class Xemm {
       return;
     }
 
-    // Adjust the amount to the fourth decimal place
-    const adjustedAmount = (Math.floor(amount * 10000) / 10000).toString();
+    // Adjust the amount to the third decimal place
+    const adjustedAmount = (Math.floor(amount * 1000) / 1000).toString();
 
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
-      const order = await this.maxRestApi.placeOrder(
+      await this.maxRestApi.placeOrder(
         `${maxIdealPrice}`,
         direction,
         adjustedAmount
       );
 
+      // const order = await this.maxRestApi.placeOrder(
+      //   `${maxIdealPrice}`,
+      //   direction,
+      //   adjustedAmount
+      // );
+
       // Because MAX sometimes forgets to send the order message,
       // automatically add the order to the active orders list after 3 seconds.
-      setTimeout(() => {
-        if (this.maxState === MaxState.PLACING_ORDER) {
-          this.maxActiveOrders.push(order);
-          log(`No message after 3 seconds, order ID ${order.id}`);
-          this.maxState = MaxState.DEFAULT;
-        }
-      }, 3000);
+      // setTimeout(() => {
+      //   if (this.maxState === MaxState.PLACING_ORDER) {
+      //     this.maxActiveOrders.push(order);
+      //     log(`No message after 3 seconds, order ID ${order.id}`);
+      //     this.maxState = MaxState.DEFAULT;
+      //   }
+      // }, 3000);
     } catch (error: any) {
       log(`Failed to place new order. ${error.message}`);
       await this.reverseDirection();
@@ -246,7 +252,7 @@ class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0007 : price * 0.9993;
+      this.nowSellingExchange === "MAX" ? price * 1.0008 : price * 0.9992;
 
     const maxInvalidOrders = [];
 
@@ -273,10 +279,11 @@ class Xemm {
 
     this.maxState = MaxState.CANCELLING_ORDER;
 
-    for (const order of maxInvalidOrders) {
-      log(`Start cancelling order with ID ${order.id}`);
-      this.maxRestApi.cancelOrder(order.id);
-    }
+    const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
+
+    this.maxRestApi.clearOrders(side);
+
+    this.maxActiveOrders.length = 0;
   };
 
   /**
@@ -341,13 +348,7 @@ class Xemm {
       if (order.S === "cancel") {
         const id = order.i;
 
-        const orderIndex = this.maxActiveOrders.findIndex(
-          (order) => order.id === id
-        );
-
-        log(`撤單成功，訂單編號 ${id}`);
-
-        this.maxActiveOrders.splice(orderIndex, 1);
+        log(`Successfully cancelled order ${id}`);
 
         if (this.maxState !== MaxState.SLEEP) {
           this.maxState = MaxState.DEFAULT;
@@ -384,10 +385,10 @@ class Xemm {
     log(`Received trade message from MAX`);
 
     for (const trade of tradeMessage.t) {
-      const side = trade.sd === "bid" ? "買入" : "賣出";
+      const side = trade.sd === "bid" ? "buy" : "sell";
 
       log(
-        `MAX ${side} order ID ${trade.oi} with price ${trade.p} and volume ${trade.v}`
+        `MAX filled ${side} order ID ${trade.oi} with price ${trade.p} and volume ${trade.v}`
       );
 
       const direction = trade.sd === "bid" ? "sell" : "buy";
@@ -401,7 +402,12 @@ class Xemm {
       );
 
       if (orderIndex === -1) {
-        log(`Order ${trade.oi} is not found`);
+        log(`Order ${trade.oi} is not found, continue.`);
+
+        if (this.maxState !== MaxState.SLEEP) {
+          this.maxState = MaxState.DEFAULT;
+        }
+
         continue;
       }
 

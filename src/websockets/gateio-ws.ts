@@ -4,7 +4,6 @@ import { log } from "../utils/log";
 import { GateioOrderBookUpdate } from "../interfaces/gateio-order-book-update";
 import crypto from "crypto";
 import dotenv from "dotenv";
-import { dot } from "node:test/reporters";
 import { GateioBalanceUpdate } from "../interfaces/gateio-balance-update";
 
 /**
@@ -43,6 +42,20 @@ export class GateioWs {
 
     this.ws.on("open", () => {
       log("Connected to Gate.io WebSocket");
+
+      this.ws.on("message", (data: Buffer) => {
+        const message = JSON.parse(data.toString());
+
+        if (message.channel === "spot.order_place") {
+          log("Order message from Gate.io:");
+          console.log("");
+          console.log(message);
+          console.log("");
+          // log(
+          //   `Gate.io order filled at price ${message.data.result.avg_deal_price} with amount ${message.data.result.amount}`
+          // );
+        }
+      });
 
       const time = Math.floor(Date.now() / 1000);
 
@@ -162,6 +175,12 @@ export class GateioWs {
       throw new Error("Crypto is not set");
     }
 
+    if (side === "buy") {
+      log(`Placing a ${side} order for ${amount} USDT`);
+    } else {
+      log(`Placing a ${side} order for ${amount} ${this.crypto.upperCase}`);
+    }
+
     this.ws.send(
       JSON.stringify({
         time: Math.floor(Date.now() / 1000),
@@ -194,7 +213,7 @@ export class GateioWs {
   ): void => {
     if (side === "sell") {
       // Adjust the amount to 5 decimal places
-      const cryptoAmount = parseFloat(amount).toFixed(5);
+      const cryptoAmount = parseFloat(amount).toFixed(3);
       this.placeMarketOrder(side, cryptoAmount);
       return;
     }

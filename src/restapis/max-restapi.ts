@@ -153,7 +153,7 @@ export class MaxRestApi {
         }
       )}`,
       {
-        method: "POST",
+        method: "DELETE",
         headers: {
           "X-MAX-ACCESSKEY": this.accessKey,
           "X-MAX-PAYLOAD": payload,
@@ -207,7 +207,7 @@ export class MaxRestApi {
         }
       )}`,
       {
-        method: "POST",
+        method: "DELETE",
         headers: {
           "X-MAX-ACCESSKEY": this.accessKey,
           "X-MAX-PAYLOAD": payload,
@@ -216,9 +216,8 @@ export class MaxRestApi {
       }
     );
 
-    if (response.status === 200) {
-      log(`Successfully cleared ${side} orders on MAX`);
-    } else {
+    if (response.status !== 200) {
+      console.log(response);
       throw new Error(`Failed to clear ${side} orders on MAX`);
     }
   };

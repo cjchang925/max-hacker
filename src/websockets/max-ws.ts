@@ -73,7 +73,7 @@ export class MaxWs {
    * Monitor the latest trades on MAX and call the callback
    * @param callback Hedge on Gate.io if any trade happens on MAX
    */
-  public listenToRecentTrade = (callback: Function): void => {
+  public listenToOrderUpdate = (callback: Function): void => {
     this.ws.on("message", (data: WebSocket.Data) => {
       const orderMessage: MaxOrderMessage = JSON.parse(data.toString());
 
@@ -227,5 +227,27 @@ export class MaxWs {
         }
       }
     });
+  };
+
+  /**
+   * Subscribe to the trade updates on MAX
+   */
+  private subscribeTrade = (): void => {
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
+    const request = {
+      action: "sub",
+      subscriptions: [
+        {
+          channel: "trade",
+          market: `${this.crypto.lowercase}usdt`,
+        },
+      ],
+      id: `${this.crypto.lowercase}usdt-trade`,
+    };
+
+    this.ws.send(JSON.stringify(request));
   };
 }

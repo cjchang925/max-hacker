@@ -4,9 +4,9 @@
 export const restapiUrl = {
   max: {
     baseUrl: "https://max-api.maicoin.com",
-    placeOrder: "/api/v2/orders",
-    cancelOrder: "/api/v2/order/delete",
-    clearOrders: "/api/v2/orders/clear",
+    placeOrder: "/api/v3/wallet/spot/order",
+    cancelOrder: "/api/v3/order",
+    clearOrders: "/api/v3/wallet/spot/orders",
     tradesOfOrder: "/api/v2/trades/my/of_order",
   },
   binance: {

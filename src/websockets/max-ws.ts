@@ -35,6 +35,16 @@ export class MaxWs {
   private bestAsk: number | null = null;
 
   /**
+   * The volume of the best bid price
+   */
+  private bestBidVolume: number | null = null;
+
+  /**
+   * The volume of the best ask price
+   */
+  private bestAskVolume: number | null = null;
+
+  /**
    * The base crypto for XEMM
    */
   private crypto: Record<string, string> | null = null;
@@ -199,7 +209,9 @@ export class MaxWs {
       if (book.e === "snapshot") {
         try {
           this.bestAsk = parseFloat(book.a[0][0]);
+          this.bestAskVolume = parseFloat(book.a[0][1]);
           this.bestBid = parseFloat(book.b[0][0]);
+          this.bestBidVolume = parseFloat(book.b[0][1]);
         } catch (error) {
           log(`Cannot parse the order book snapshot`);
           console.log(book);
@@ -214,6 +226,7 @@ export class MaxWs {
           const volume = parseFloat(ask[1]);
           if (volume !== 0) {
             this.bestAsk = parseFloat(ask[0]);
+            this.bestAskVolume = parseFloat(book.a[0][1]);
           }
         }
       }
@@ -223,6 +236,7 @@ export class MaxWs {
           const volume = parseFloat(bid[1]);
           if (volume !== 0) {
             this.bestBid = parseFloat(bid[0]);
+            this.bestBidVolume = parseFloat(book.b[0][1]);
           }
         }
       }
@@ -230,24 +244,33 @@ export class MaxWs {
   };
 
   /**
-   * Subscribe to the trade updates on MAX
+   * Get the best bid volume on MAX
+   * @returns The best bid volume on MAX
    */
-  private subscribeTrade = (): void => {
-    if (!this.crypto) {
-      throw new Error("Crypto is not set");
+  public getBestBidVolume = (): number => {
+    if (this.bestBidVolume === null) {
+      throw new Error("The best bid volume on MAX is not available");
     }
 
-    const request = {
-      action: "sub",
-      subscriptions: [
-        {
-          channel: "trade",
-          market: `${this.crypto.lowercase}usdt`,
-        },
-      ],
-      id: `${this.crypto.lowercase}usdt-trade`,
-    };
+    return this.bestBidVolume;
+  };
 
-    this.ws.send(JSON.stringify(request));
+  /**
+   * Get the best ask volume on MAX
+   * @returns The best ask volume on MAX
+   */
+  public getBestAskVolume = (): number => {
+    if (this.bestAskVolume === null) {
+      throw new Error("The best ask volume on MAX is not available");
+    }
+
+    return this.bestAskVolume;
+  };
+
+  /**
+   * Close the connection to MAX WebSocket
+   */
+  public close = (): void => {
+    this.ws.close();
   };
 }

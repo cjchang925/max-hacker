@@ -44,14 +44,16 @@ export class MaxRestApi {
   }
 
   /**
-   * Place a limit order
+   * Place an order
+   * @param ord_type "post_only" or "market"
    * @param price price to place
    * @param side "buy" or "sell"
    * @param volume volume to place
    * @returns ID of the placed order
    */
   public placeOrder = async (
-    price: string,
+    ord_type: "post_only" | "market",
+    price: string | null,
     side: "buy" | "sell",
     volume: string
   ): Promise<MaxOrder> => {
@@ -63,14 +65,22 @@ export class MaxRestApi {
       throw new Error("Crypto is not set");
     }
 
-    const request = {
-      market: `${this.crypto.lowercase}usdt`,
-      side,
-      volume, // Precision: 6
-      price,
-      ord_type: "post_only",
-      nonce,
-    };
+    const request = price
+      ? {
+          market: `${this.crypto.lowercase}usdt`,
+          side,
+          volume,
+          price,
+          ord_type,
+          nonce,
+        }
+      : {
+          market: `${this.crypto.lowercase}usdt`,
+          side,
+          volume,
+          ord_type,
+          nonce,
+        };
 
     const paramsToBeSigned = {
       ...request,

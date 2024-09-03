@@ -9,14 +9,13 @@ import { MaxOrder } from "./interfaces/max-order";
 import { GateioRestApi } from "./restapis/gateio-restapi";
 import { MaxBalance } from "./interfaces/max-balance";
 import { MaxAccountMessage } from "./interfaces/max-account-message";
-import { GateioBalanceUpdate } from "./interfaces/gateio-balance-update";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 
 /**
  * Execute XEMM strategy on Gate.io and MAX
  */
-class Xemm {
+export class Xemm {
   /**
    * Gate.io WebSocket instance
    */
@@ -56,7 +55,7 @@ class Xemm {
   /**
    * MAX 各幣種餘額，以幣種為 key，餘額為 value
    */
-  private maxBalance: Record<string, MaxBalance> = {};
+  private maxBalances: Record<string, MaxBalance> = {};
 
   /**
    * The exchange that is currently selling crypto,
@@ -76,7 +75,7 @@ class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    upperCase: "SOL",
+    uppercase: "SOL",
     lowercase: "sol",
   };
 
@@ -93,11 +92,11 @@ class Xemm {
     this.gateioWs = new GateioWs(this.crypto);
 
     this.gateioRestApi = new GateioRestApi();
-    this.gateioRestApi.getBalances(this.initializeGateioBalances);
+    this.gateioRestApi.getBalances(this.updateGateioBalances);
 
     // Whenever a trade is filled on Gate.io, renew the balances.
     this.gateioWs.listenToPlacedOrderUpdate(() => {
-      this.gateioRestApi.getBalances(this.initializeGateioBalances);
+      this.gateioRestApi.getBalances(this.updateGateioBalances);
     });
   }
 
@@ -120,11 +119,11 @@ class Xemm {
    * otherwise, sell on Gate.io
    */
   private determineDirection = (): void => {
-    const cryptoBalance = this.maxBalance[this.crypto.lowercase];
-    const usdtBalance = this.maxBalance["usdt"];
+    const cryptoBalance = this.maxBalances[this.crypto.lowercase];
+    const usdtBalance = this.maxBalances["usdt"];
 
     if (!cryptoBalance || !usdtBalance) {
-      throw new Error(`${this.crypto.upperCase} or USDT balance is not found`);
+      throw new Error(`${this.crypto.uppercase} or USDT balance is not found`);
     }
 
     const maxCryptoValue = cryptoBalance.available + cryptoBalance.locked;
@@ -189,19 +188,20 @@ class Xemm {
     let amount: number | null = null;
 
     if (this.nowSellingExchange === "MAX") {
-      const maxCryptoBalance = this.maxBalance[this.crypto.lowercase].available;
+      const maxCryptoBalance =
+        this.maxBalances[this.crypto.lowercase].available;
       const gateioUSDTBalance = this.gateioBalances.USDT;
 
       amount = Math.min(maxCryptoBalance, gateioUSDTBalance / price);
     } else {
-      const maxUSDTBalance = this.maxBalance["usdt"].available;
-      const gateioCryptoBalance = this.gateioBalances[this.crypto.upperCase];
+      const maxUSDTBalance = this.maxBalances["usdt"].available;
+      const gateioCryptoBalance = this.gateioBalances[this.crypto.uppercase];
 
       amount = Math.min(maxUSDTBalance / price, gateioCryptoBalance);
     }
 
     if (amount < 0.0002) {
-      log(`${this.crypto.upperCase} balance is not enough to place an order`);
+      log(`${this.crypto.uppercase} balance is not enough to place an order`);
       await this.reverseDirection();
       return;
     }
@@ -213,6 +213,7 @@ class Xemm {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
       await this.maxRestApi.placeOrder(
+        "post_only",
         `${maxIdealPrice}`,
         direction,
         adjustedAmount
@@ -279,10 +280,10 @@ class Xemm {
   };
 
   /**
-   * Initialize the balances on Gate.io
+   * Update the balances on Gate.io
    * @param balances Balances on Gate.io
    */
-  private initializeGateioBalances = (
+  private updateGateioBalances = (
     balances: { currency: string; available: string }[]
   ) => {
     for (const balance of balances) {
@@ -296,7 +297,7 @@ class Xemm {
    */
   private maxAccountUpdateCb = (accountMessage: MaxAccountMessage): void => {
     for (const balance of accountMessage.B) {
-      this.maxBalance[balance.cu] = {
+      this.maxBalances[balance.cu] = {
         available: parseFloat(balance.av),
         locked: parseFloat(balance.l),
       };
@@ -423,6 +424,24 @@ class Xemm {
         this.maxState = MaxState.DEFAULT;
       }
     }
+  };
+
+  /**
+   * Stop XEMM strategy
+   */
+  public stop = async (): Promise<void> => {
+    log("Stop XEMM strategy");
+    this.maxState = MaxState.SLEEP;
+    log("Cancel all orders on MAX");
+    const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
+    await this.maxRestApi.clearOrders(direction);
+    await sleep(5000);
+    log("After 5 seconds, cancel all orders on MAX again");
+    await this.maxRestApi.clearOrders(direction);
+    log("Finished cancelling all orders on MAX");
+    this.maxWs.close();
+    this.gateioWs.close();
+    log("Closed WebSocket connections");
   };
 }
 

@@ -83,7 +83,7 @@ export class GateioWs {
           time,
           channel: "spot.book_ticker",
           event: "subscribe",
-          payload: [`${this.crypto.upperCase}_USDT`],
+          payload: [`${this.crypto.uppercase}_USDT`],
         })
       );
 
@@ -148,10 +148,10 @@ export class GateioWs {
       }
 
       this.bestBid = parseFloat(message.result.b);
-      this.bestAsk = parseFloat(message.result.a);
+      // this.bestAsk = parseFloat(message.result.a);
 
       if (callback) {
-        callback(this.bestBid, this.bestAsk);
+        callback(this.bestBid);
       }
     });
   };
@@ -187,7 +187,7 @@ export class GateioWs {
     if (side === "buy") {
       log(`Placing a ${side} order for ${amount} USDT`);
     } else {
-      log(`Placing a ${side} order for ${amount} ${this.crypto.upperCase}`);
+      log(`Placing a ${side} order for ${amount} ${this.crypto.uppercase}`);
     }
 
     this.ws.send(
@@ -199,7 +199,7 @@ export class GateioWs {
           req_id: "1",
           req_param: {
             text: "t-my-custom-id",
-            currency_pair: `${this.crypto.upperCase}_USDT`,
+            currency_pair: `${this.crypto.uppercase}_USDT`,
             type: "market",
             account: "spot",
             side,
@@ -236,5 +236,12 @@ export class GateioWs {
 
     const usdtAmount = (parseFloat(amount) * cryptoToUsdt).toFixed(2);
     this.placeMarketOrder(side, usdtAmount);
+  };
+
+  /**
+   * Close the WebSocket connection
+   */
+  public close = (): void => {
+    this.ws.close();
   };
 }

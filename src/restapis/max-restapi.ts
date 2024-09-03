@@ -216,7 +216,7 @@ export class MaxRestApi {
       }
     );
 
-    if (response.status !== 200) {
+    if (response.status >= 300) {
       console.log(response);
       throw new Error(`Failed to clear ${side} orders on MAX`);
     }

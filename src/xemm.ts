@@ -67,6 +67,12 @@ class Xemm {
   private nowSellingExchange: "MAX" | "Gate.io" | null = null;
 
   /**
+   * The number of times the order has been cancelled,
+   * used to determine which method to call when cancelling orders.
+   */
+  private cancelOrderCount = 0;
+
+  /**
    * The base crypto for XEMM
    */
   private crypto = {
@@ -85,10 +91,14 @@ class Xemm {
     this.maxRestApi = new MaxRestApi(this.crypto);
 
     this.gateioWs = new GateioWs(this.crypto);
-    this.gateioWs.listenToBalanceUpdate(this.gateioBalanceUpdateCb);
 
     this.gateioRestApi = new GateioRestApi();
     this.gateioRestApi.getBalances(this.initializeGateioBalances);
+
+    // Whenever a trade is filled on Gate.io, renew the balances.
+    this.gateioWs.listenToPlacedOrderUpdate(() => {
+      this.gateioRestApi.getBalances(this.initializeGateioBalances);
+    });
   }
 
   /**
@@ -207,35 +217,9 @@ class Xemm {
         direction,
         adjustedAmount
       );
-
-      // const order = await this.maxRestApi.placeOrder(
-      //   `${maxIdealPrice}`,
-      //   direction,
-      //   adjustedAmount
-      // );
-
-      // Because MAX sometimes forgets to send the order message,
-      // automatically add the order to the active orders list after 3 seconds.
-      // setTimeout(() => {
-      //   if (this.maxState === MaxState.PLACING_ORDER) {
-      //     this.maxActiveOrders.push(order);
-      //     log(`No message after 3 seconds, order ID ${order.id}`);
-      //     this.maxState = MaxState.DEFAULT;
-      //   }
-      // }, 3000);
     } catch (error: any) {
-      log(`Failed to place new order. ${error.message}`);
+      log(`Failed to place new order, error message: ${error.message}`);
       await this.reverseDirection();
-    }
-  };
-
-  /**
-   * Executed after receiving the balance update from Gate.io
-   * @param message Balance update message from Gate.io
-   */
-  private gateioBalanceUpdateCb = (message: GateioBalanceUpdate): void => {
-    for (const balance of message.result) {
-      this.gateioBalances[balance.currency] = parseFloat(balance.available);
     }
   };
 
@@ -281,8 +265,16 @@ class Xemm {
 
     const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
-    this.maxRestApi.clearOrders(side);
+    // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
+    if (this.cancelOrderCount % 2) {
+      this.maxRestApi.clearOrders(side);
+    } else {
+      for (const order of maxInvalidOrders) {
+        this.maxRestApi.cancelOrder(order.id);
+      }
+    }
 
+    this.cancelOrderCount++;
     this.maxActiveOrders.length = 0;
   };
 
@@ -331,6 +323,9 @@ class Xemm {
 
     log("Finished reverse direction, start XEMM again");
 
+    this.nowSellingExchange =
+      this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
+
     this.maxState = MaxState.DEFAULT;
   };
 
@@ -368,7 +363,7 @@ class Xemm {
           timestamp: Date.now(),
         });
 
-        log(`Placed a new order with ID ${order.i}`);
+        log(`A new order has been placed with ID ${order.i}`);
 
         if (this.maxState !== MaxState.SLEEP) {
           this.maxState = MaxState.DEFAULT;

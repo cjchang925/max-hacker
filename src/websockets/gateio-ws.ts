@@ -43,20 +43,6 @@ export class GateioWs {
     this.ws.on("open", () => {
       log("Connected to Gate.io WebSocket");
 
-      this.ws.on("message", (data: Buffer) => {
-        const message = JSON.parse(data.toString());
-
-        if (message.channel === "spot.order_place") {
-          log("Order message from Gate.io:");
-          console.log("");
-          console.log(message);
-          console.log("");
-          // log(
-          //   `Gate.io order filled at price ${message.data.result.avg_deal_price} with amount ${message.data.result.amount}`
-          // );
-        }
-      });
-
       const time = Math.floor(Date.now() / 1000);
 
       // Ping the server
@@ -111,6 +97,29 @@ export class GateioWs {
       );
     });
   }
+
+  /**
+   * Listen to placed order update on Gate.io
+   * @param callback called when placed order is updated
+   */
+  public listenToPlacedOrderUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: Buffer) => {
+      const message = JSON.parse(data.toString());
+
+      if (!message.header || message.header.channel !== "spot.order_place") {
+        return;
+      }
+
+      log("Order message from Gate.io:");
+      console.log("");
+      console.log(message);
+      console.log("");
+
+      if (callback) {
+        callback();
+      }
+    });
+  };
 
   /**
    * Sign the content with the secret key

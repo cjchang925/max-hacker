@@ -75,8 +75,8 @@ export class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    uppercase: "SOL",
-    lowercase: "sol",
+    uppercase: "BCH",
+    lowercase: "bch",
   };
 
   constructor() {
@@ -200,7 +200,7 @@ export class Xemm {
       amount = Math.min(maxUSDTBalance / price, gateioCryptoBalance);
     }
 
-    if (amount < 0.0002) {
+    if (amount < 0.024) {
       log(`${this.crypto.uppercase} balance is not enough to place an order`);
       await this.reverseDirection();
       return;

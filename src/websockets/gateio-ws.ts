@@ -148,7 +148,7 @@ export class GateioWs {
       }
 
       this.bestBid = parseFloat(message.result.b);
-      // this.bestAsk = parseFloat(message.result.a);
+      this.bestAsk = parseFloat(message.result.a);
 
       if (callback) {
         callback(this.bestBid);

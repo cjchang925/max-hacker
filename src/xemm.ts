@@ -11,6 +11,7 @@ import { MaxBalance } from "./interfaces/max-balance";
 import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
+import cron from "node-cron";
 
 /**
  * Execute XEMM strategy on Gate.io and MAX
@@ -445,4 +446,17 @@ export class Xemm {
   };
 }
 
-new Xemm().kicksOff();
+const main = () => {
+  let xemm = new Xemm();
+  xemm.kicksOff();
+
+  cron.schedule("0 0 0 * * *", async () => {
+    log("Restart XEMM strategy...");
+    await xemm.stop();
+    await sleep(5000);
+    xemm = new Xemm();
+    xemm.kicksOff();
+  });
+};
+
+main();

@@ -6,9 +6,19 @@ import { BinanceTrade } from "../interfaces/binance-trade";
 export class BinanceStreamWs {
   private ws: WebSocket;
 
-  constructor() {
-    // this.ws = new WebSocket(websocketUrl.binance.stream.btcusdtTrade);
-    this.ws = new WebSocket(websocketUrl.binance.stream.bnbusdcTrade);
+  /**
+   * The base crypto for XEMM
+   */
+  private crypto: Record<string, string> | null = null;
+
+  constructor(crypto: Record<string, string>) {
+    this.crypto = crypto;
+
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
+    this.ws = new WebSocket(`${websocketUrl.binance.stream}/${this.crypto.lowercase}usdt@aggTrade`);
   }
 
   /**

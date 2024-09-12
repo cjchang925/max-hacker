@@ -76,8 +76,8 @@ export class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    uppercase: "BNB",
-    lowercase: "bnb",
+    uppercase: "SOL",
+    lowercase: "sol",
   };
 
   constructor() {

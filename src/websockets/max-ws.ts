@@ -226,6 +226,10 @@ export class MaxWs {
         return;
       }
 
+      if (message.c !== "book") {
+        return;
+      }
+
       if (message.e === "snapshot") {
         try {
           this.bestAsk = parseFloat(message.a[0][0]);

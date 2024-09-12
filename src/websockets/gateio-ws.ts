@@ -239,6 +239,30 @@ export class GateioWs {
   };
 
   /**
+   * Get the best ask price on Gate.io
+   * @returns Gate.io best ask price
+   */
+  public getBestAsk = (): number => {
+    if (this.bestAsk === null) {
+      throw new Error("The best ask price on Gate.io is not available");
+    }
+
+    return this.bestAsk;
+  }
+
+  /**
+   * Get the best bid price on Gate.io
+   * @returns Gate.io best bid price
+   */
+  public getBestBid = (): number => {
+    if (this.bestBid === null) {
+      throw new Error("The best bid price on Gate.io is not available");
+    }
+
+    return this.bestBid;
+  }
+
+  /**
    * Close the WebSocket connection
    */
   public close = (): void => {

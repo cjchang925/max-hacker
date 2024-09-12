@@ -11,6 +11,7 @@ import { MaxBalance } from "./interfaces/max-balance";
 import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
+import { MaxSocketMessage } from "./interfaces/max-socket-message";
 import cron from "node-cron";
 
 /**
@@ -73,6 +74,11 @@ export class Xemm {
   private cancelOrderCount = 0;
 
   /**
+   * The price of the last order placed on MAX
+   */
+  private lastOrderPrice = 0;
+
+  /**
    * The base crypto for XEMM
    */
   private crypto = {
@@ -87,6 +93,7 @@ export class Xemm {
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
     this.maxWs.listenToOrderUpdate(this.maxOrderUpdateCb);
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
+    this.maxWs.listenToGeneralTradeUpdate(this.maxGeneralTradeUpdateCb);
 
     this.maxRestApi = new MaxRestApi(this.crypto);
 
@@ -281,6 +288,27 @@ export class Xemm {
   };
 
   /**
+   * Check if the order on MAX has possibly been filled
+   * @param message MAX general trade message
+   */
+  private maxGeneralTradeUpdateCb = (message: MaxSocketMessage): void => {
+    const price = parseFloat(message.t[0].p);
+
+    if (price !== this.lastOrderPrice) {
+      return;
+    }
+
+    const gateioPrice =
+      this.nowSellingExchange === "MAX"
+        ? this.gateioWs.getBestAsk()
+        : this.gateioWs.getBestBid();
+
+    log(
+      `MAX's order has probably been filled at ${price}. The ideal Gate.io hedge price is ${gateioPrice}`
+    );
+  };
+
+  /**
    * Update the balances on Gate.io
    * @param balances Balances on Gate.io
    */
@@ -364,6 +392,8 @@ export class Xemm {
           remainingVolume: order.rv,
           timestamp: Date.now(),
         });
+
+        this.lastOrderPrice = parseFloat(order.p);
 
         log(`A new order has been placed with ID ${order.i}`);
 

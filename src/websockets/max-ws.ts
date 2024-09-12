@@ -128,6 +128,22 @@ export class MaxWs {
   };
 
   /**
+   * Listen to general trade updates
+   * @param callback Callback function to handle general trades
+   */
+  public listenToGeneralTradeUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: WebSocket.Data) => {
+      const message: MaxSocketMessage = JSON.parse(data.toString());
+
+      if (message.e !== "update" || message.c !== "trade" || !callback) {
+        return;
+      }
+
+      callback(message);
+    });
+  };
+
+  /**
    * Get the best bid price on MAX
    * @returns MAX best bid price
    */
@@ -187,6 +203,10 @@ export class MaxWs {
           market: `${this.crypto.lowercase}usdt`,
           depth: 1,
         },
+        {
+          channel: "trade",
+          market: `${this.crypto.lowercase}usdt`,
+        },
       ],
       id: `${this.crypto.lowercase}usdt-order-book`,
     };
@@ -194,49 +214,49 @@ export class MaxWs {
     this.ws.send(JSON.stringify(request));
 
     this.ws.on("message", (data: WebSocket.Data) => {
-      const book: MaxSocketMessage = JSON.parse(data.toString());
+      const message: MaxSocketMessage = JSON.parse(data.toString());
 
-      if (book.e === "subscribed") {
+      if (message.e === "subscribed") {
         return;
       }
 
-      if (book.e === "error") {
+      if (message.e === "error") {
         console.log("Error from MAX WebSocket");
-        console.log(book);
+        console.log(message);
         return;
       }
 
-      if (book.e === "snapshot") {
+      if (message.e === "snapshot") {
         try {
-          this.bestAsk = parseFloat(book.a[0][0]);
-          this.bestAskVolume = parseFloat(book.a[0][1]);
-          this.bestBid = parseFloat(book.b[0][0]);
-          this.bestBidVolume = parseFloat(book.b[0][1]);
+          this.bestAsk = parseFloat(message.a[0][0]);
+          this.bestAskVolume = parseFloat(message.a[0][1]);
+          this.bestBid = parseFloat(message.b[0][0]);
+          this.bestBidVolume = parseFloat(message.b[0][1]);
         } catch (error) {
           log(`Cannot parse the order book snapshot`);
-          console.log(book);
+          console.log(message);
           log(`Error: ${error}`);
         }
 
         return;
       }
 
-      if (book.e === "update" && book.a.length) {
-        for (const ask of book.a) {
+      if (message.e === "update" && message.a.length) {
+        for (const ask of message.a) {
           const volume = parseFloat(ask[1]);
           if (volume !== 0) {
             this.bestAsk = parseFloat(ask[0]);
-            this.bestAskVolume = parseFloat(book.a[0][1]);
+            this.bestAskVolume = parseFloat(message.a[0][1]);
           }
         }
       }
 
-      if (book.e === "update" && book.b.length) {
-        for (const bid of book.b) {
+      if (message.e === "update" && message.b.length) {
+        for (const bid of message.b) {
           const volume = parseFloat(bid[1]);
           if (volume !== 0) {
             this.bestBid = parseFloat(bid[0]);
-            this.bestBidVolume = parseFloat(book.b[0][1]);
+            this.bestBidVolume = parseFloat(message.b[0][1]);
           }
         }
       }

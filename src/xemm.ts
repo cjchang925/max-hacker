@@ -79,6 +79,11 @@ export class Xemm {
   private lastOrderPrice = 0;
 
   /**
+   * The ID of cancelled orders
+   */
+  private cancelledOrderIds = new Set<number>();
+
+  /**
    * The base crypto for XEMM
    */
   private crypto = {
@@ -235,7 +240,7 @@ export class Xemm {
   /**
    * Process active orders on MAX,
    * cancel orders with price difference less than 0.1%
-   * or has been placed for more than 10 seconds.
+   * or has been placed for more than 5 seconds.
    * @param price Gate.io current price
    */
   private processActiveOrders = (price: number) => {
@@ -247,11 +252,11 @@ export class Xemm {
     const borderPrice =
       this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
-    const maxInvalidOrders = [];
+    const maxInvalidOrders: MaxOrder[] = [];
 
     for (const order of this.maxActiveOrders) {
-      // Cancel orders that have been placed for more than 10 seconds
-      if (Date.now() - order.timestamp >= 10000) {
+      // Cancel orders that have been placed for more than 5 seconds
+      if (Date.now() - order.timestamp >= 5000) {
         maxInvalidOrders.push(order);
         continue;
       }
@@ -274,6 +279,8 @@ export class Xemm {
 
     const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
+    this.cancelledOrderIds.add(maxInvalidOrders[0].id);
+
     // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
     if (this.cancelOrderCount % 2) {
       this.maxRestApi.clearOrders(side);
@@ -284,7 +291,21 @@ export class Xemm {
     }
 
     this.cancelOrderCount++;
+
+    if (this.cancelOrderCount > 999) {
+      this.cancelOrderCount === 0;
+    }
+
     this.maxActiveOrders.length = 0;
+
+    setTimeout(async () => {
+      if (this.cancelledOrderIds.has(maxInvalidOrders[0].id)) {
+        log(
+          "Did not receive the response of cancelling orders, restart XEMM strategy"
+        );
+        await this.reverseDirection();
+      }
+    }, 5000);
   };
 
   /**
@@ -374,6 +395,8 @@ export class Xemm {
         const id = order.i;
 
         log(`Successfully cancelled order ${id}`);
+
+        this.cancelledOrderIds.delete(id);
 
         if (this.maxState !== MaxState.SLEEP) {
           this.maxState = MaxState.DEFAULT;

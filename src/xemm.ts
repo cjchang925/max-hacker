@@ -252,11 +252,20 @@ export class Xemm {
     const borderPrice =
       this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
+    // The next possible price to place an order based on current price
+    const nextPossiblePrice =
+      this.nowSellingExchange === "MAX"
+        ? (price * 1.0008).toFixed(2)
+        : (price * 0.9992).toFixed(2);
+
     const maxInvalidOrders: MaxOrder[] = [];
 
     for (const order of this.maxActiveOrders) {
       // Cancel orders that have been placed for more than 5 seconds
-      if (Date.now() - order.timestamp >= 5000) {
+      if (
+        Date.now() - order.timestamp >= 5000 &&
+        +order.price !== +nextPossiblePrice
+      ) {
         maxInvalidOrders.push(order);
         continue;
       }

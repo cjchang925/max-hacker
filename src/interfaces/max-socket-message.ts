@@ -37,6 +37,11 @@ export interface MaxSocketMessage {
     p: string;
 
     /**
+     * Volume
+     */
+    v: string;
+
+    /**
      * Trend
      */
     tr: string;

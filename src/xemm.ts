@@ -333,9 +333,18 @@ export class Xemm {
         ? this.gateioWs.getBestAsk()
         : this.gateioWs.getBestBid();
 
+    const volume = message.t[0].v;
+
     log(
-      `MAX's order has probably been filled at ${price}. The ideal Gate.io hedge price is ${gateioPrice}`
+      `MAX's order has probably been filled at ${price} with volume ${volume}. The ideal Gate.io hedge price is ${gateioPrice}`
     );
+
+    this.gateioWs.adjustAndPlaceMarketOrder(
+      this.nowSellingExchange === "MAX" ? "buy" : "sell",
+      volume
+    );
+
+    log(`Hedged on Gate.io with volume ${volume}`);
   };
 
   /**
@@ -450,10 +459,11 @@ export class Xemm {
         `MAX filled ${side} order ID ${trade.oi} with price ${trade.p} and volume ${trade.v}`
       );
 
-      const direction = trade.sd === "bid" ? "sell" : "buy";
+      // 9/14/2024 14:40: Moved hedging to general trade update
+      // const direction = trade.sd === "bid" ? "sell" : "buy";
 
       // Hedge on Gate.io with the same volume
-      this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v);
+      // this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v);
 
       // Modify the remaining volume of the active order
       const orderIndex = this.maxActiveOrders.findIndex(

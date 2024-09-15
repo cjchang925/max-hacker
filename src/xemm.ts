@@ -176,7 +176,7 @@ export class Xemm {
 
     if (this.nowSellingExchange === "MAX") {
       // 0.08% higher than Gate.io current price
-      maxIdealPrice = parseFloat((price * 1.0008).toFixed(2));
+      maxIdealPrice = parseFloat((price * 1.001).toFixed(2));
 
       const maxBestBid = this.maxWs.getBestBid();
 
@@ -186,7 +186,7 @@ export class Xemm {
       }
     } else {
       // 0.08% lower than Gate.io current price
-      maxIdealPrice = parseFloat((price * 0.9992).toFixed(2));
+      maxIdealPrice = parseFloat((price * 0.999).toFixed(2));
 
       const maxBestAsk = this.maxWs.getBestAsk();
 
@@ -250,13 +250,13 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
+      this.nowSellingExchange === "MAX" ? price * 1.0008 : price * 0.9992;
 
     // The next possible price to place an order based on current price
     const nextPossiblePrice =
       this.nowSellingExchange === "MAX"
-        ? (price * 1.0008).toFixed(2)
-        : (price * 0.9992).toFixed(2);
+        ? (price * 1.001).toFixed(2)
+        : (price * 0.999).toFixed(2);
 
     const maxInvalidOrders: MaxOrder[] = [];
 
@@ -339,12 +339,12 @@ export class Xemm {
       `MAX's order has probably been filled at ${price} with volume ${volume}. The ideal Gate.io hedge price is ${gateioPrice}`
     );
 
-    this.gateioWs.adjustAndPlaceMarketOrder(
-      this.nowSellingExchange === "MAX" ? "buy" : "sell",
-      volume
-    );
+    // this.gateioWs.adjustAndPlaceMarketOrder(
+    //   this.nowSellingExchange === "MAX" ? "buy" : "sell",
+    //   volume
+    // );
 
-    log(`Hedged on Gate.io with volume ${volume}`);
+    // log(`Hedged on Gate.io with volume ${volume}`);
   };
 
   /**
@@ -460,10 +460,10 @@ export class Xemm {
       );
 
       // 9/14/2024 14:40: Moved hedging to general trade update
-      // const direction = trade.sd === "bid" ? "sell" : "buy";
+      const direction = trade.sd === "bid" ? "sell" : "buy";
 
       // Hedge on Gate.io with the same volume
-      // this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v);
+      this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v);
 
       // Modify the remaining volume of the active order
       const orderIndex = this.maxActiveOrders.findIndex(

@@ -243,7 +243,7 @@ export class Xemm {
    * or has been placed for more than 5 seconds.
    * @param price Gate.io current price
    */
-  private processActiveOrders = (price: number) => {
+  private processActiveOrders = async (price: number) => {
     if (!this.maxActiveOrders.length) {
       return;
     }
@@ -291,12 +291,18 @@ export class Xemm {
     this.cancelledOrderIds.add(maxInvalidOrders[0].id);
 
     // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
-    if (this.cancelOrderCount % 2) {
-      this.maxRestApi.clearOrders(side);
-    } else {
-      for (const order of maxInvalidOrders) {
-        this.maxRestApi.cancelOrder(order.id);
+    try {
+      if (this.cancelOrderCount % 2) {
+        this.maxRestApi.clearOrders(side);
+      } else {
+        for (const order of maxInvalidOrders) {
+          this.maxRestApi.cancelOrder(order.id);
+        }
       }
+    } catch (error: any) {
+      log(`Failed to cancel orders, error message: ${error.message}`);
+      await this.reverseDirection();
+      return;
     }
 
     this.cancelOrderCount++;

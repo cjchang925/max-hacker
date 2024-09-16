@@ -388,13 +388,13 @@ export class Xemm {
 
     log("Cancel all orders on MAX");
 
-    await this.maxRestApi.clearOrders(direction);
-
-    await sleep(5000);
-
-    log("After 5 seconds, cancel all orders on MAX again");
-
-    await this.maxRestApi.clearOrders(direction);
+    try {
+      await this.maxRestApi.clearOrders(direction);
+    } catch (error: any) {
+      for (const order of this.maxActiveOrders) {
+        this.maxRestApi.cancelOrder(order.id);
+      }
+    }
 
     log("Finished reverse direction, start XEMM again");
 

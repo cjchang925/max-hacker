@@ -168,17 +168,15 @@ export class Xemm {
       return;
     }
 
-    // Change the state to prevent multiple executions
-    this.maxState = MaxState.PLACING_ORDER;
-
     // Ideal price to place an order on MAX
     let maxIdealPrice: number = 0;
+
+    const maxBestBid = this.maxWs.getBestBid();
+    const maxBestAsk = this.maxWs.getBestAsk();
 
     if (this.nowSellingExchange === "MAX") {
       // 0.08% higher than Gate.io current price
       maxIdealPrice = parseFloat((price * 1.001).toFixed(2));
-
-      const maxBestBid = this.maxWs.getBestBid();
 
       if (maxBestBid >= maxIdealPrice) {
         log("MAX best bid is higher than order price, add 0.01 to it");
@@ -188,13 +186,29 @@ export class Xemm {
       // 0.08% lower than Gate.io current price
       maxIdealPrice = parseFloat((price * 0.999).toFixed(2));
 
-      const maxBestAsk = this.maxWs.getBestAsk();
-
       if (maxBestAsk <= maxIdealPrice) {
         log("MAX best ask is lower than order price, subtract 0.01 from it");
         maxIdealPrice = maxBestAsk - 0.01;
       }
     }
+
+    // Only place order when maxIdealPrice is not further than 0.02 with the best price on MAX's order book.
+    if (
+      this.nowSellingExchange === "MAX" &&
+      maxIdealPrice - maxBestAsk > 0.02
+    ) {
+      return;
+    }
+
+    if (
+      this.nowSellingExchange === "Gate.io" &&
+      maxBestBid - maxIdealPrice > 0.02
+    ) {
+      return;
+    }
+
+    // Change the state to prevent multiple executions
+    this.maxState = MaxState.PLACING_ORDER;
 
     // Calculate the maximum amount for the placed order,
     // which is the minimum of the two exchanges' balances.

@@ -76,7 +76,7 @@ export class Xemm {
   /**
    * The price of the last order placed on MAX
    */
-  private lastOrderPrice = 0;
+  private lastOrderPrice: number | null = null;
 
   /**
    * The ID of cancelled orders
@@ -344,7 +344,7 @@ export class Xemm {
   private maxGeneralTradeUpdateCb = (message: MaxSocketMessage): void => {
     const price = parseFloat(message.t[0].p);
 
-    if (price !== this.lastOrderPrice) {
+    if (!this.lastOrderPrice || price !== this.lastOrderPrice) {
       return;
     }
 
@@ -512,6 +512,8 @@ export class Xemm {
       log(`Order ${order.id} has been fully filled`);
 
       this.maxActiveOrders.splice(orderIndex, 1);
+
+      this.lastOrderPrice = null;
 
       if (this.maxState !== MaxState.SLEEP) {
         this.maxState = MaxState.DEFAULT;

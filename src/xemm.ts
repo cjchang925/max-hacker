@@ -176,7 +176,7 @@ export class Xemm {
 
     if (this.nowSellingExchange === "MAX") {
       // 0.08% higher than Gate.io current price
-      maxIdealPrice = parseFloat((price * 1.001).toFixed(2));
+      maxIdealPrice = parseFloat((price * 1.0008).toFixed(2));
 
       if (maxBestBid >= maxIdealPrice) {
         log("MAX best bid is higher than order price, add 0.01 to it");
@@ -184,7 +184,7 @@ export class Xemm {
       }
     } else {
       // 0.08% lower than Gate.io current price
-      maxIdealPrice = parseFloat((price * 0.999).toFixed(2));
+      maxIdealPrice = parseFloat((price * 0.9992).toFixed(2));
 
       if (maxBestAsk <= maxIdealPrice) {
         log("MAX best ask is lower than order price, subtract 0.01 from it");
@@ -253,7 +253,7 @@ export class Xemm {
 
   /**
    * Process active orders on MAX,
-   * cancel orders with price difference less than 0.1%
+   * cancel orders with price difference less than 0.06%
    * or has been placed for more than 5 seconds.
    * @param price Gate.io current price
    */
@@ -264,13 +264,13 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0008 : price * 0.9992;
+      this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
     // The next possible price to place an order based on current price
     const nextPossiblePrice =
       this.nowSellingExchange === "MAX"
-        ? (price * 1.001).toFixed(2)
-        : (price * 0.999).toFixed(2);
+        ? (price * 1.0008).toFixed(2)
+        : (price * 0.9992).toFixed(2);
 
     const maxInvalidOrders: MaxOrder[] = [];
 

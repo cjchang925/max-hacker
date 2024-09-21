@@ -277,7 +277,7 @@ export class Xemm {
   /**
    * Process active orders on MAX,
    * cancel orders with price difference less than 0.06%
-   * or has been placed for more than 5 seconds.
+   * or has been far from the best price on order book.
    * @param price Gate.io current price
    */
   private processActiveOrders = async (price: number) => {
@@ -289,78 +289,53 @@ export class Xemm {
     const borderPrice =
       this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
-    // The next possible price to place an order based on current price
-    // const nextPossiblePrice =
-    //   this.nowSellingExchange === "MAX"
-    //     ? (price * 1.0008).toFixed(2)
-    //     : (price * 0.9992).toFixed(2);
-
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
 
-    const maxInvalidOrders: MaxOrder[] = [];
+    const order = this.maxActiveOrders[0];
 
-    for (const order of this.maxActiveOrders) {
-      // Cancel orders that have been placed for more than 5 seconds
-      // if (
-      //   Date.now() - order.timestamp >= 5000 &&
-      //   +order.price !== +nextPossiblePrice
-      // ) {
-      //   maxInvalidOrders.push(order);
-      //   continue;
-      // }
+    // Cancel orders with price difference less than 0.1%
+    if (
+      this.nowSellingExchange === "MAX"
+        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.03
+        : +order.price > borderPrice || maxBestBid - +order.price > 0.03
+    ) {
+      this.maxState = MaxState.CANCELLING_ORDER;
 
-      // Cancel orders with price difference less than 0.1%
-      if (
-        this.nowSellingExchange === "MAX"
-          ? +order.price < borderPrice || +order.price - maxBestAsk > 0.03
-          : +order.price > borderPrice || maxBestBid - +order.price > 0.03
-      ) {
-        maxInvalidOrders.push(order);
-      }
-    }
+      const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
-    if (!maxInvalidOrders.length) {
-      return;
-    }
+      this.cancelledOrderIds.add(order.id);
 
-    this.maxState = MaxState.CANCELLING_ORDER;
-
-    const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-
-    this.cancelledOrderIds.add(maxInvalidOrders[0].id);
-
-    // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
-    try {
-      if (this.cancelOrderCount % 2) {
-        this.maxRestApi.clearOrders(side);
-      } else {
-        for (const order of maxInvalidOrders) {
+      // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
+      try {
+        if (this.cancelOrderCount % 2) {
+          this.maxRestApi.clearOrders(side);
+        } else {
           this.maxRestApi.cancelOrder(order.id);
         }
-      }
-    } catch (error: any) {
-      log(`Failed to cancel orders, error message: ${error.message}`);
-      await this.reverseDirection();
-      return;
-    }
-
-    this.cancelOrderCount++;
-
-    if (this.cancelOrderCount > 999) {
-      this.cancelOrderCount === 0;
-    }
-
-    this.maxActiveOrders.length = 0;
-
-    setTimeout(async () => {
-      if (this.cancelledOrderIds.has(maxInvalidOrders[0].id)) {
-        log(
-          "Did not receive the response of cancelling orders, restart XEMM strategy"
-        );
+      } catch (error: any) {
+        log(`Failed to cancel orders, error message: ${error.message}`);
         await this.reverseDirection();
+        return;
       }
-    }, 5000);
+
+      this.cancelOrderCount++;
+
+      if (this.cancelOrderCount > 999) {
+        this.cancelOrderCount === 0;
+      }
+
+      this.maxActiveOrders.length = 0;
+
+      setTimeout(async () => {
+        if (this.cancelledOrderIds.has(order.id)) {
+          log(
+            "Did not receive the response of cancelling orders, restart XEMM strategy"
+          );
+          await this.reverseDirection();
+        }
+      }, 5000);
+    }
   };
 
   /**
@@ -384,13 +359,6 @@ export class Xemm {
     log(
       `MAX's order has probably been filled at ${price} with volume ${volume}. The ideal Gate.io hedge price is ${gateioPrice}`
     );
-
-    // this.gateioWs.adjustAndPlaceMarketOrder(
-    //   this.nowSellingExchange === "MAX" ? "buy" : "sell",
-    //   volume
-    // );
-
-    // log(`Hedged on Gate.io with volume ${volume}`);
   };
 
   /**
@@ -461,6 +429,7 @@ export class Xemm {
         log(`Successfully cancelled order ${id}`);
 
         this.cancelledOrderIds.delete(id);
+        this.lastOrderPrice = null;
 
         if (this.maxState !== MaxState.SLEEP) {
           this.maxState = MaxState.DEFAULT;

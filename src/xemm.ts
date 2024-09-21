@@ -197,38 +197,7 @@ export class Xemm {
       }
     }
 
-    // if (this.nowSellingExchange === "MAX") {
-    //   // 0.08% higher than Gate.io current price
-    //   maxIdealPrice = parseFloat((price * 1.0008).toFixed(2));
-
-    //   if (maxBestBid >= maxIdealPrice) {
-    //     log("MAX best bid is higher than order price, add 0.01 to it");
-    //     maxIdealPrice = maxBestBid + 0.01;
-    //   }
-    // } else {
-    //   // 0.08% lower than Gate.io current price
-    //   maxIdealPrice = parseFloat((price * 0.9992).toFixed(2));
-
-    //   if (maxBestAsk <= maxIdealPrice) {
-    //     log("MAX best ask is lower than order price, subtract 0.01 from it");
-    //     maxIdealPrice = maxBestAsk - 0.01;
-    //   }
-    // }
-
-    // // Only place order when maxIdealPrice is not further than 0.02 with the best price on MAX's order book.
-    // if (
-    //   this.nowSellingExchange === "MAX" &&
-    //   maxIdealPrice - maxBestAsk > 0.02
-    // ) {
-    //   return;
-    // }
-
-    // if (
-    //   this.nowSellingExchange === "Gate.io" &&
-    //   maxBestBid - maxIdealPrice > 0.02
-    // ) {
-    //   return;
-    // }
+    maxIdealPrice = Math.floor(maxIdealPrice * 100) / 100;
 
     // Change the state to prevent multiple executions
     this.maxState = MaxState.PLACING_ORDER;

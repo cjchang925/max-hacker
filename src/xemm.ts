@@ -174,38 +174,61 @@ export class Xemm {
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
 
+    // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
-      // 0.08% higher than Gate.io current price
-      maxIdealPrice = parseFloat((price * 1.0008).toFixed(2));
-
-      if (maxBestBid >= maxIdealPrice) {
-        log("MAX best bid is higher than order price, add 0.01 to it");
-        maxIdealPrice = maxBestBid + 0.01;
+      if ((maxBestAsk - 0.01 - price) / price >= 0.0007) {
+        // Can be better than the best price on MAX
+        maxIdealPrice = maxBestAsk - 0.01;
+      } else if ((maxBestAsk - price) / price >= 0.0007) {
+        // At the best price on MAX
+        maxIdealPrice = maxBestAsk;
+      } else {
+        return;
       }
     } else {
-      // 0.08% lower than Gate.io current price
-      maxIdealPrice = parseFloat((price * 0.9992).toFixed(2));
-
-      if (maxBestAsk <= maxIdealPrice) {
-        log("MAX best ask is lower than order price, subtract 0.01 from it");
-        maxIdealPrice = maxBestAsk - 0.01;
+      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.0007) {
+        // Can be better than the best price on MAX
+        maxIdealPrice = maxBestBid + 0.01;
+      } else if ((price - maxBestBid) / maxBestBid >= 0.0007) {
+        // At the best price on MAX
+        maxIdealPrice = maxBestBid;
+      } else {
+        return;
       }
     }
 
-    // Only place order when maxIdealPrice is not further than 0.02 with the best price on MAX's order book.
-    if (
-      this.nowSellingExchange === "MAX" &&
-      maxIdealPrice - maxBestAsk > 0.02
-    ) {
-      return;
-    }
+    // if (this.nowSellingExchange === "MAX") {
+    //   // 0.08% higher than Gate.io current price
+    //   maxIdealPrice = parseFloat((price * 1.0008).toFixed(2));
 
-    if (
-      this.nowSellingExchange === "Gate.io" &&
-      maxBestBid - maxIdealPrice > 0.02
-    ) {
-      return;
-    }
+    //   if (maxBestBid >= maxIdealPrice) {
+    //     log("MAX best bid is higher than order price, add 0.01 to it");
+    //     maxIdealPrice = maxBestBid + 0.01;
+    //   }
+    // } else {
+    //   // 0.08% lower than Gate.io current price
+    //   maxIdealPrice = parseFloat((price * 0.9992).toFixed(2));
+
+    //   if (maxBestAsk <= maxIdealPrice) {
+    //     log("MAX best ask is lower than order price, subtract 0.01 from it");
+    //     maxIdealPrice = maxBestAsk - 0.01;
+    //   }
+    // }
+
+    // // Only place order when maxIdealPrice is not further than 0.02 with the best price on MAX's order book.
+    // if (
+    //   this.nowSellingExchange === "MAX" &&
+    //   maxIdealPrice - maxBestAsk > 0.02
+    // ) {
+    //   return;
+    // }
+
+    // if (
+    //   this.nowSellingExchange === "Gate.io" &&
+    //   maxBestBid - maxIdealPrice > 0.02
+    // ) {
+    //   return;
+    // }
 
     // Change the state to prevent multiple executions
     this.maxState = MaxState.PLACING_ORDER;
@@ -224,7 +247,7 @@ export class Xemm {
       const maxUSDTBalance = this.maxBalances["usdt"].available;
       const gateioCryptoBalance = this.gateioBalances[this.crypto.uppercase];
 
-      amount = Math.min(maxUSDTBalance / price, gateioCryptoBalance);
+      amount = Math.min(maxUSDTBalance / maxIdealPrice, gateioCryptoBalance);
     }
 
     if (amount < 0.016) {
@@ -267,28 +290,31 @@ export class Xemm {
       this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
     // The next possible price to place an order based on current price
-    const nextPossiblePrice =
-      this.nowSellingExchange === "MAX"
-        ? (price * 1.0008).toFixed(2)
-        : (price * 0.9992).toFixed(2);
+    // const nextPossiblePrice =
+    //   this.nowSellingExchange === "MAX"
+    //     ? (price * 1.0008).toFixed(2)
+    //     : (price * 0.9992).toFixed(2);
+
+    const maxBestBid = this.maxWs.getBestBid();
+    const maxBestAsk = this.maxWs.getBestAsk();
 
     const maxInvalidOrders: MaxOrder[] = [];
 
     for (const order of this.maxActiveOrders) {
       // Cancel orders that have been placed for more than 5 seconds
-      if (
-        Date.now() - order.timestamp >= 5000 &&
-        +order.price !== +nextPossiblePrice
-      ) {
-        maxInvalidOrders.push(order);
-        continue;
-      }
+      // if (
+      //   Date.now() - order.timestamp >= 5000 &&
+      //   +order.price !== +nextPossiblePrice
+      // ) {
+      //   maxInvalidOrders.push(order);
+      //   continue;
+      // }
 
       // Cancel orders with price difference less than 0.1%
       if (
         this.nowSellingExchange === "MAX"
-          ? +order.price < borderPrice
-          : +order.price > borderPrice
+          ? +order.price < borderPrice || +order.price - maxBestAsk > 0.03
+          : +order.price > borderPrice || maxBestBid - +order.price > 0.03
       ) {
         maxInvalidOrders.push(order);
       }

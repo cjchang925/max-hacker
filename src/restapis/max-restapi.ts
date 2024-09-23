@@ -155,25 +155,29 @@ export class MaxRestApi {
       .update(payload)
       .digest("hex");
 
-    const response: MaxOrderResponse = await fetch(
-      `${restapiUrl.max.baseUrl}${restapiUrl.max.cancelOrder}?${qs.stringify(
-        request,
+    try {
+      const response: MaxOrderResponse = await fetch(
+        `${restapiUrl.max.baseUrl}${restapiUrl.max.cancelOrder}?${qs.stringify(
+          request,
+          {
+            arrayFormat: "brackets",
+          }
+        )}`,
         {
-          arrayFormat: "brackets",
+          method: "DELETE",
+          headers: {
+            "X-MAX-ACCESSKEY": this.accessKey,
+            "X-MAX-PAYLOAD": payload,
+            "X-MAX-SIGNATURE": signature,
+          },
         }
-      )}`,
-      {
-        method: "DELETE",
-        headers: {
-          "X-MAX-ACCESSKEY": this.accessKey,
-          "X-MAX-PAYLOAD": payload,
-          "X-MAX-SIGNATURE": signature,
-        },
-      }
-    ).then((res) => res.json());
+      ).then((res) => res.json());
 
-    if (response.success === false) {
-      throw new Error(response.error?.message);
+      if (response.success === false) {
+        throw new Error(response.error?.message);
+      }
+    } catch (error: any) {
+      throw new Error(error.message);
     }
   };
 
@@ -209,26 +213,30 @@ export class MaxRestApi {
       .update(payload)
       .digest("hex");
 
-    const response = await fetch(
-      `${restapiUrl.max.baseUrl}${restapiUrl.max.clearOrders}?${qs.stringify(
-        request,
+    try {
+      const response = await fetch(
+        `${restapiUrl.max.baseUrl}${restapiUrl.max.clearOrders}?${qs.stringify(
+          request,
+          {
+            arrayFormat: "brackets",
+          }
+        )}`,
         {
-          arrayFormat: "brackets",
+          method: "DELETE",
+          headers: {
+            "X-MAX-ACCESSKEY": this.accessKey,
+            "X-MAX-PAYLOAD": payload,
+            "X-MAX-SIGNATURE": signature,
+          },
         }
-      )}`,
-      {
-        method: "DELETE",
-        headers: {
-          "X-MAX-ACCESSKEY": this.accessKey,
-          "X-MAX-PAYLOAD": payload,
-          "X-MAX-SIGNATURE": signature,
-        },
-      }
-    );
+      );
 
-    if (response.status >= 300) {
-      console.log(response);
-      throw new Error(`Failed to clear ${side} orders on MAX`);
+      if (response.status >= 300) {
+        console.log(response);
+        throw new Error(`Failed to clear ${side} orders on MAX`);
+      }
+    } catch (error: any) {
+      throw new Error(error.message);
     }
   };
 

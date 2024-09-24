@@ -176,20 +176,20 @@ export class Xemm {
 
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
-      if ((maxBestAsk - 0.01 - price) / price >= 0.0007) {
+      if ((maxBestAsk - 0.01 - price) / price >= 0.0008) {
         // Can be better than the best price on MAX
         maxIdealPrice = maxBestAsk - 0.01;
-      } else if ((maxBestAsk - price) / price >= 0.0007) {
+      } else if ((maxBestAsk - price) / price >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestAsk;
       } else {
         return;
       }
     } else {
-      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.0007) {
+      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.0008) {
         // Can be better than the best price on MAX
         maxIdealPrice = maxBestBid + 0.01;
-      } else if ((price - maxBestBid) / maxBestBid >= 0.0007) {
+      } else if ((price - maxBestBid) / maxBestBid >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestBid;
       } else {
@@ -245,7 +245,7 @@ export class Xemm {
 
   /**
    * Process active orders on MAX,
-   * cancel orders with price difference less than 0.06%
+   * cancel orders with price difference less than 0.07%
    * or has been far from the best price on order book.
    * @param price Gate.io current price
    */
@@ -256,7 +256,7 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
+      this.nowSellingExchange === "MAX" ? price * 1.0007 : price * 0.9993;
 
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();

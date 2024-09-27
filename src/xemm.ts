@@ -124,6 +124,7 @@ export class Xemm {
 
     this.determineDirection();
     this.gateioWs.listenToOrderBookUpdate(this.gateioPriceUpdateCb);
+    this.gateioWs.listenToTradeUpdate(this.gateioPriceUpdateCb);
   };
 
   /**
@@ -176,20 +177,20 @@ export class Xemm {
 
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
-      if ((maxBestAsk - 0.01 - price) / price >= 0.001) {
+      if ((maxBestAsk - 0.01 - price) / price >= 0.0008) {
         // Can be better than the best price on MAX
         maxIdealPrice = maxBestAsk - 0.01;
-      } else if ((maxBestAsk - price) / price >= 0.001) {
+      } else if ((maxBestAsk - price) / price >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestAsk;
       } else {
         return;
       }
     } else {
-      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.001) {
+      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.0008) {
         // Can be better than the best price on MAX
         maxIdealPrice = maxBestBid + 0.01;
-      } else if ((price - maxBestBid) / maxBestBid >= 0.001) {
+      } else if ((price - maxBestBid) / maxBestBid >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestBid;
       } else {
@@ -256,7 +257,7 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0008 : price * 0.9992;
+      this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
 
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();

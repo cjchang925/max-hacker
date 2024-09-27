@@ -87,6 +87,16 @@ export class GateioWs {
         })
       );
 
+      // Subscribe to trades
+      this.ws.send(
+        JSON.stringify({
+          time,
+          channel: "spot.trades",
+          event: "subscribe",
+          payload: [`${this.crypto.uppercase}_USDT`],
+        })
+      );
+
       // Subscribe to balance updates
       this.ws.send(
         JSON.stringify({
@@ -150,8 +160,28 @@ export class GateioWs {
       this.bestBid = parseFloat(message.result.b);
       this.bestAsk = parseFloat(message.result.a);
 
+      // if (callback) {
+      //   callback(this.bestBid);
+      // }
+    });
+  };
+
+  /**
+   * Listen to trade update on Gate.io
+   * @param callback called when trade is updated
+   */
+  public listenToTradeUpdate = (callback: Function): void => {
+    this.ws.on("message", (data: Buffer) => {
+      const message = JSON.parse(data.toString());
+
+      if (message.channel !== "spot.trades" || message.event !== "update") {
+        return;
+      }
+
+      const price = parseFloat(message.result.price);
+
       if (callback) {
-        callback(this.bestBid);
+        callback(price);
       }
     });
   };
@@ -248,7 +278,7 @@ export class GateioWs {
     }
 
     return this.bestAsk;
-  }
+  };
 
   /**
    * Get the best bid price on Gate.io
@@ -260,7 +290,7 @@ export class GateioWs {
     }
 
     return this.bestBid;
-  }
+  };
 
   /**
    * Close the WebSocket connection

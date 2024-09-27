@@ -12,7 +12,6 @@ import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
-import cron from "node-cron";
 
 /**
  * Execute XEMM strategy on Gate.io and MAX
@@ -222,7 +221,7 @@ export class Xemm {
 
     if (amount < 0.016) {
       log(`${this.crypto.uppercase} balance is not enough to place an order`);
-      await this.reverseDirection();
+      await this.restart(true);
       return;
     }
 
@@ -232,15 +231,25 @@ export class Xemm {
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
-      await this.maxRestApi.placeOrder(
+      const order = await this.maxRestApi.placeOrder(
         "post_only",
         `${maxIdealPrice}`,
         direction,
         adjustedAmount
       );
+
+      setTimeout(() => {
+        // Check if the order has been placed
+        if (this.maxState === MaxState.PLACING_ORDER) {
+          log(
+            `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
+          );
+          this.restart(false);
+        }
+      }, 5000);
     } catch (error: any) {
       log(`Failed to place new order, error message: ${error.message}`);
-      await this.reverseDirection();
+      await this.restart(false);
     }
   };
 
@@ -285,7 +294,7 @@ export class Xemm {
         }
       } catch (error: any) {
         log(`Failed to cancel orders, error message: ${error.message}`);
-        await this.reverseDirection();
+        await this.restart(false);
         return;
       }
 
@@ -302,7 +311,7 @@ export class Xemm {
           log(
             "Did not receive the response of cancelling orders, restart XEMM strategy"
           );
-          await this.reverseDirection();
+          await this.restart(false);
         }
       }, 5000);
     }
@@ -357,9 +366,10 @@ export class Xemm {
   };
 
   /**
-   * Reverse the direction of XEMM
+   * Restart the strategy
+   * @param reverse Whether to reverse the direction
    */
-  private reverseDirection = async (): Promise<void> => {
+  private restart = async (reverse: boolean): Promise<void> => {
     this.maxState = MaxState.SLEEP;
 
     const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
@@ -374,10 +384,12 @@ export class Xemm {
       }
     }
 
-    log("Finished reverse direction, start XEMM again");
+    log("All orders are cancelled, start XEMM again");
 
-    this.nowSellingExchange =
-      this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
+    if (reverse) {
+      this.nowSellingExchange =
+        this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
+    }
 
     this.maxState = MaxState.DEFAULT;
   };
@@ -507,15 +519,12 @@ export class Xemm {
 
 const main = () => {
   let xemm = new Xemm();
-  xemm.kicksOff();
 
-  cron.schedule("0 0 0 * * *", async () => {
-    log("Restart XEMM strategy...");
-    await xemm.stop();
-    await sleep(5000);
-    xemm = new Xemm();
+  try {
     xemm.kicksOff();
-  });
+  } catch (error: any) {
+    xemm.stop();
+  }
 };
 
 main();

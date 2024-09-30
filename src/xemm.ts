@@ -67,12 +67,6 @@ export class Xemm {
   private nowSellingExchange: "MAX" | "Gate.io" | null = null;
 
   /**
-   * The number of times the order has been cancelled,
-   * used to determine which method to call when cancelling orders.
-   */
-  private cancelOrderCount = 0;
-
-  /**
    * The price of the last order placed on MAX
    */
   private lastOrderPrice: number | null = null;
@@ -280,28 +274,14 @@ export class Xemm {
         : +order.price > borderPrice || maxBestBid - +order.price > 0.03
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
-
-      const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-
       this.cancelledOrderIds.add(order.id);
 
-      // Use different methods to cancel orders to avoid frequently sending request to MAX's server.
       try {
-        if (this.cancelOrderCount % 2) {
-          this.maxRestApi.clearOrders(side);
-        } else {
-          this.maxRestApi.cancelOrder(order.id);
-        }
+        this.maxRestApi.cancelOrder(order.id);
       } catch (error: any) {
         log(`Failed to cancel orders, error message: ${error.message}`);
         await this.restart(false);
         return;
-      }
-
-      this.cancelOrderCount++;
-
-      if (this.cancelOrderCount > 999) {
-        this.cancelOrderCount === 0;
       }
 
       this.maxActiveOrders.length = 0;

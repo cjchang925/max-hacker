@@ -14,4 +14,4 @@ COPY tsconfig.json ./
 
 RUN npx tsc
 
-CMD ["npx", "ts-node", "src/test.ts"]
+CMD ["npx", "ts-node", "src/xemm.ts"]

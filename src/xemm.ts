@@ -507,20 +507,20 @@ export class Xemm {
 
 const main = () => {
   let xemm = new Xemm();
-  // const twoHours = 2 * 60 * 60 * 1000;
-  const threeMinutes = 3 * 60 * 1000;
+  const twoHours = 2 * 60 * 60 * 1000;
 
   try {
     xemm.kicksOff();
 
-    setInterval(() => {
+    const interval = setInterval(() => {
       log("3 minutes limit hit, restart XEMM strategy");
       xemm.restart(false);
-    }, threeMinutes);
+    }, twoHours);
 
     // Listen for the SIGINT signal (Ctrl+C)
     process.on('SIGINT', () => {
-      log("\nGracefully shutting down...");
+      log("Gracefully shutting down...");
+      clearInterval(interval);
       xemm.stop(); // Perform any necessary cleanup
       process.exit(0); // Exit the process
     });

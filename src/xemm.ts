@@ -84,6 +84,11 @@ export class Xemm {
     lowercase: "doge",
   };
 
+  /**
+   * The tick of prices
+   */
+  private tick = 0.0001;
+
   constructor() {
     dotenv.config();
 
@@ -173,9 +178,9 @@ export class Xemm {
 
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
-      if ((maxBestAsk - 0.01 - price) / price >= 0.0008) {
+      if ((maxBestAsk - this.tick - price) / price >= 0.0008) {
         // Can be better than the best price on MAX
-        maxIdealPrice = maxBestAsk - 0.01;
+        maxIdealPrice = maxBestAsk - this.tick;
       } else if ((maxBestAsk - price) / price >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestAsk;
@@ -183,9 +188,9 @@ export class Xemm {
         return;
       }
     } else {
-      if ((price - (maxBestBid + 0.01)) / (maxBestBid + 0.01) >= 0.0008) {
+      if ((price - (maxBestBid + this.tick)) / (maxBestBid + this.tick) >= 0.0008) {
         // Can be better than the best price on MAX
-        maxIdealPrice = maxBestBid + 0.01;
+        maxIdealPrice = maxBestBid + this.tick;
       } else if ((price - maxBestBid) / maxBestBid >= 0.0008) {
         // At the best price on MAX
         maxIdealPrice = maxBestBid;
@@ -194,7 +199,7 @@ export class Xemm {
       }
     }
 
-    maxIdealPrice = Math.floor(maxIdealPrice * 100) / 100;
+    maxIdealPrice = Math.floor(maxIdealPrice * 10000) / 10000;
 
     // Change the state to prevent multiple executions
     this.maxState = MaxState.PLACING_ORDER;
@@ -216,14 +221,14 @@ export class Xemm {
       amount = Math.min(maxUSDTBalance / maxIdealPrice, gateioCryptoBalance);
     }
 
-    if (amount < 0.016) {
+    if (amount < 28) {
       log(`${this.crypto.uppercase} balance is not enough to place an order`);
       await this.restart(true);
       return;
     }
 
     // Adjust the amount to the third decimal place
-    const adjustedAmount = (Math.floor(amount * 1000) / 1000).toString();
+    const adjustedAmount = (Math.floor(amount)).toString();
 
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";

@@ -80,18 +80,14 @@ export class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    uppercase: "SOL",
-    lowercase: "sol",
+    uppercase: "DOGE",
+    lowercase: "doge",
   };
 
   constructor() {
     dotenv.config();
 
     this.maxWs = new MaxWs(this.crypto);
-    this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
-    this.maxWs.listenToOrderUpdate(this.maxOrderUpdateCb);
-    this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
-    this.maxWs.listenToGeneralTradeUpdate(this.maxGeneralTradeUpdateCb);
 
     this.maxRestApi = new MaxRestApi(this.crypto);
 
@@ -99,17 +95,24 @@ export class Xemm {
 
     this.gateioRestApi = new GateioRestApi();
     this.gateioRestApi.getBalances(this.updateGateioBalances);
-
-    // Whenever a trade is filled on Gate.io, renew the balances.
-    this.gateioWs.listenToPlacedOrderUpdate(() => {
-      this.gateioRestApi.getBalances(this.updateGateioBalances);
-    });
   }
 
   /**
    * Start XEMM strategy
    */
   public kicksOff = async (): Promise<void> => {
+    log("Kickoff");
+
+    this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
+    this.maxWs.listenToOrderUpdate(this.maxOrderUpdateCb);
+    this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
+    this.maxWs.listenToGeneralTradeUpdate(this.maxGeneralTradeUpdateCb);
+
+    // Whenever a trade is filled on Gate.io, renew the balances.
+    this.gateioWs.listenToPlacedOrderUpdate(() => {
+      this.gateioRestApi.getBalances(this.updateGateioBalances);
+    });
+
     // Wait 3 seconds for establishing connections
     await sleep(3000);
 
@@ -349,12 +352,11 @@ export class Xemm {
    * Restart the strategy
    * @param reverse Whether to reverse the direction
    */
-  private restart = async (reverse: boolean): Promise<void> => {
+  public restart = async (reverse: boolean): Promise<void> => {
+    log("Get restart signal, closing...");
+
     this.maxState = MaxState.SLEEP;
-
     const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-
-    log("Cancel all orders on MAX");
 
     try {
       await this.maxRestApi.clearOrders(direction);
@@ -364,7 +366,13 @@ export class Xemm {
       }
     }
 
-    log("All orders are cancelled, start XEMM again");
+    this.maxWs.close();
+    this.gateioWs.close();
+
+    log("Finish closing, restarting...");
+
+    this.maxWs = new MaxWs(this.crypto);
+    this.gateioWs = new GateioWs(this.crypto);
 
     if (reverse) {
       this.nowSellingExchange =
@@ -372,6 +380,7 @@ export class Xemm {
     }
 
     this.maxState = MaxState.DEFAULT;
+    this.kicksOff();
   };
 
   /**
@@ -484,24 +493,25 @@ export class Xemm {
   public stop = async (): Promise<void> => {
     log("Stop XEMM strategy");
     this.maxState = MaxState.SLEEP;
-    log("Cancel all orders on MAX");
     const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
     await this.maxRestApi.clearOrders(direction);
-    await sleep(5000);
-    log("After 5 seconds, cancel all orders on MAX again");
-    await this.maxRestApi.clearOrders(direction);
-    log("Finished cancelling all orders on MAX");
     this.maxWs.close();
     this.gateioWs.close();
-    log("Closed WebSocket connections");
   };
 }
 
 const main = () => {
   let xemm = new Xemm();
+  // const twoHours = 2 * 60 * 60 * 1000;
+  const threeMinutes = 3 * 60 * 1000;
 
   try {
     xemm.kicksOff();
+
+    setInterval(() => {
+      log("3 minutes limit hit, restart XEMM strategy");
+      xemm.restart(false);
+    }, threeMinutes);
   } catch (error: any) {
     xemm.stop();
   }

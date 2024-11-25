@@ -278,8 +278,8 @@ export class Xemm {
     // Cancel orders with price difference less than 0.1%
     if (
       this.nowSellingExchange === "MAX"
-        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.03
-        : +order.price > borderPrice || maxBestBid - +order.price > 0.03
+        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.0003
+        : +order.price > borderPrice || maxBestBid - +order.price > 0.0003
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);
@@ -517,6 +517,13 @@ const main = () => {
       log("3 minutes limit hit, restart XEMM strategy");
       xemm.restart(false);
     }, threeMinutes);
+
+    // Listen for the SIGINT signal (Ctrl+C)
+    process.on('SIGINT', () => {
+      log("\nGracefully shutting down...");
+      xemm.stop(); // Perform any necessary cleanup
+      process.exit(0); // Exit the process
+    });
   } catch (error: any) {
     xemm.stop();
   }

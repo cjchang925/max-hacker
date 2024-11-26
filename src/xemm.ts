@@ -371,6 +371,9 @@ export class Xemm {
       }
     }
 
+    this.maxActiveOrders.length = 0;
+    this.cancelledOrderIds.clear();
+    this.lastOrderPrice = null;
     this.maxWs.close();
     this.gateioWs.close();
 

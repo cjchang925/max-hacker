@@ -252,7 +252,9 @@ export class GateioWs {
   ): void => {
     if (side === "sell") {
       // Adjust the amount to 5 decimal places
-      const cryptoAmount = parseFloat(amount).toFixed(3);
+      const cryptoAmount = (
+        Math.floor(parseFloat(amount) * 100) / 100
+      ).toString();
       this.placeMarketOrder(side, cryptoAmount);
       return;
     }
@@ -264,7 +266,9 @@ export class GateioWs {
       return;
     }
 
-    const usdtAmount = (parseFloat(amount) * cryptoToUsdt).toFixed(2);
+    const usdtAmount = (
+      Math.floor(parseFloat(amount) * cryptoToUsdt * 100) / 100
+    ).toString();
     this.placeMarketOrder(side, usdtAmount);
   };
 

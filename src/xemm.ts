@@ -374,7 +374,9 @@ export class Xemm {
     this.maxWs.close();
     this.gateioWs.close();
 
-    log("Finish closing, restarting...");
+    log("Finish closing, waiting 3 seconds...");
+    await sleep(3000);
+    log("Restarting...");
 
     this.maxWs = new MaxWs(this.crypto);
     this.gateioWs = new GateioWs(this.crypto);
@@ -513,7 +515,7 @@ const main = () => {
     xemm.kicksOff();
 
     const interval = setInterval(() => {
-      log("3 minutes limit hit, restart XEMM strategy");
+      log("2 hours limit hit, restart XEMM strategy");
       xemm.restart(false);
     }, twoHours);
 

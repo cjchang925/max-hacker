@@ -3,3 +3,4 @@ node_modules/
 src/secrets/private-key.pem
 src/test/
 .DS_Store
+*.pem

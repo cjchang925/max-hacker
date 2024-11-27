@@ -80,8 +80,8 @@ export class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    uppercase: "DOGE",
-    lowercase: "doge",
+    uppercase: "ADA",
+    lowercase: "ada",
   };
 
   /**
@@ -265,7 +265,7 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0006 : price * 0.9994;
+      this.nowSellingExchange === "MAX" ? price * 1.0005 : price * 0.9995;
 
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();

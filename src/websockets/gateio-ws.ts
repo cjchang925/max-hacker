@@ -30,6 +30,11 @@ export class GateioWs {
    */
   private crypto: Record<string, string> | null = null;
 
+  /**
+   * The latest fair price
+   */
+  private latestFairPrice: number | null = null;
+
   constructor(crypto: Record<string, string>) {
     this.crypto = crypto;
 
@@ -144,37 +149,37 @@ export class GateioWs {
 
   /**
    * Compute the fair price based on the order book
-   * @param orderBook 
-   * @returns 
+   * @param orderBook
+   * @returns
    */
   private computeFairPrice = (orderBook: GateioOrderBook) => {
     const weightedPricesAtEachLevel = [];
-  
+
     for (let i = 0; i < 10; ++i) {
       const [bidPrice, bidVolume] = orderBook.result.bids[i];
       const [askPrice, askVolume] = orderBook.result.asks[i];
-  
+
       const weightedPrice =
         (+bidPrice * +bidVolume + +askPrice * +askVolume) /
         (+bidVolume + +askVolume);
-  
+
       weightedPricesAtEachLevel.push(weightedPrice);
     }
-  
+
     // Use exponential decay to compute the fair price
     let sum = 0;
     let lambda = 0.1;
-  
+
     for (let i = 0; i < 10; ++i) {
       sum += weightedPricesAtEachLevel[i] * Math.exp(-lambda * i);
     }
-  
+
     let exponentialDecaySum = 0;
-  
+
     for (let i = 0; i < 10; ++i) {
       exponentialDecaySum += Math.exp(-lambda * i);
     }
-  
+
     return sum / exponentialDecaySum;
   };
 
@@ -186,10 +191,7 @@ export class GateioWs {
     this.ws.on("message", (data: Buffer) => {
       const message: GateioOrderBook = JSON.parse(data.toString());
 
-      if (
-        message.channel !== "spot.order_book" ||
-        message.event !== "update"
-      ) {
+      if (message.channel !== "spot.order_book" || message.event !== "update") {
         return;
       }
 
@@ -197,6 +199,12 @@ export class GateioWs {
       this.bestAsk = parseFloat(message.result.asks[0][0]);
 
       const fairPrice = this.computeFairPrice(message);
+
+      if (this.latestFairPrice === fairPrice) {
+        return;
+      }
+
+      this.latestFairPrice = fairPrice;
 
       if (callback) {
         callback(fairPrice);

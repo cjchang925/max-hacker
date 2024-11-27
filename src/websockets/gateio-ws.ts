@@ -1,10 +1,10 @@
 import WebSocket from "ws";
 import { websocketUrl } from "../environments/websocket-url";
 import { log } from "../utils/log";
-import { GateioOrderBookUpdate } from "../interfaces/gateio-order-book-update";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import { GateioBalanceUpdate } from "../interfaces/gateio-balance-update";
+import { GateioOrderBook } from "../interfaces/gateio-order-book";
 
 /**
  * The WebSocket stream for Gate.io
@@ -81,9 +81,9 @@ export class GateioWs {
       this.ws.send(
         JSON.stringify({
           time,
-          channel: "spot.book_ticker",
+          channel: "spot.order_book",
           event: "subscribe",
-          payload: [`${this.crypto.uppercase}_USDT`],
+          payload: [`${this.crypto.uppercase}_USDT`, "10", "100ms"],
         })
       );
 
@@ -143,26 +143,64 @@ export class GateioWs {
   }
 
   /**
+   * Compute the fair price based on the order book
+   * @param orderBook 
+   * @returns 
+   */
+  private computeFairPrice = (orderBook: GateioOrderBook) => {
+    const weightedPricesAtEachLevel = [];
+  
+    for (let i = 0; i < 10; ++i) {
+      const [bidPrice, bidVolume] = orderBook.result.bids[i];
+      const [askPrice, askVolume] = orderBook.result.asks[i];
+  
+      const weightedPrice =
+        (+bidPrice * +bidVolume + +askPrice * +askVolume) /
+        (+bidVolume + +askVolume);
+  
+      weightedPricesAtEachLevel.push(weightedPrice);
+    }
+  
+    // Use exponential decay to compute the fair price
+    let sum = 0;
+    let lambda = 0.1;
+  
+    for (let i = 0; i < 10; ++i) {
+      sum += weightedPricesAtEachLevel[i] * Math.exp(-lambda * i);
+    }
+  
+    let exponentialDecaySum = 0;
+  
+    for (let i = 0; i < 10; ++i) {
+      exponentialDecaySum += Math.exp(-lambda * i);
+    }
+  
+    return sum / exponentialDecaySum;
+  };
+
+  /**
    * Listen to order book update on Gate.io
    * @param callback called when order book is updated
    */
   public listenToOrderBookUpdate = (callback: Function): void => {
     this.ws.on("message", (data: Buffer) => {
-      const message: GateioOrderBookUpdate = JSON.parse(data.toString());
+      const message: GateioOrderBook = JSON.parse(data.toString());
 
       if (
-        message.channel !== "spot.book_ticker" ||
+        message.channel !== "spot.order_book" ||
         message.event !== "update"
       ) {
         return;
       }
 
-      this.bestBid = parseFloat(message.result.b);
-      this.bestAsk = parseFloat(message.result.a);
+      this.bestBid = parseFloat(message.result.bids[0][0]);
+      this.bestAsk = parseFloat(message.result.asks[0][0]);
 
-      // if (callback) {
-      //   callback(this.bestBid);
-      // }
+      const fairPrice = this.computeFairPrice(message);
+
+      if (callback) {
+        callback(fairPrice);
+      }
     });
   };
 

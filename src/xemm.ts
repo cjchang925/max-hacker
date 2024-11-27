@@ -125,7 +125,6 @@ export class Xemm {
 
     this.determineDirection();
     this.gateioWs.listenToOrderBookUpdate(this.gateioPriceUpdateCb);
-    this.gateioWs.listenToTradeUpdate(this.gateioPriceUpdateCb);
   };
 
   /**
@@ -178,25 +177,23 @@ export class Xemm {
 
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
-      if ((maxBestAsk - this.tick - price) / price >= 0.0008) {
-        // Can be better than the best price on MAX
-        maxIdealPrice = maxBestAsk - this.tick;
-      } else if ((maxBestAsk - price) / price >= 0.0008) {
-        // At the best price on MAX
-        maxIdealPrice = maxBestAsk;
-      } else {
-        return;
+      for (let i = 0; i < 4; ++i) {
+        if (maxBestAsk - this.tick + i * this.tick - price >= 0.0009) {
+          maxIdealPrice = maxBestAsk - this.tick + i * this.tick;
+          break;
+        }
       }
     } else {
-      if ((price - (maxBestBid + this.tick)) / (maxBestBid + this.tick) >= 0.0008) {
-        // Can be better than the best price on MAX
-        maxIdealPrice = maxBestBid + this.tick;
-      } else if ((price - maxBestBid) / maxBestBid >= 0.0008) {
-        // At the best price on MAX
-        maxIdealPrice = maxBestBid;
-      } else {
-        return;
+      for (let i = 0; i < 4; ++i) {
+        if (price - (maxBestBid + this.tick - i * this.tick) >= 0.0009) {
+          maxIdealPrice = maxBestBid + this.tick - i * this.tick;
+          break;
+        }
       }
+    }
+
+    if (maxIdealPrice === 0) {
+      return;
     }
 
     maxIdealPrice = Math.floor(maxIdealPrice * 10000) / 10000;
@@ -228,7 +225,7 @@ export class Xemm {
     }
 
     // Adjust the amount to the third decimal place
-    const adjustedAmount = (Math.floor(amount)).toString();
+    const adjustedAmount = Math.floor(amount).toString();
 
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
@@ -275,7 +272,7 @@ export class Xemm {
 
     const order = this.maxActiveOrders[0];
 
-    // Cancel orders with price difference less than 0.1%
+    // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
         ? +order.price < borderPrice || +order.price - maxBestAsk > 0.0003
@@ -523,7 +520,7 @@ const main = () => {
     }, twoHours);
 
     // Listen for the SIGINT signal (Ctrl+C)
-    process.on('SIGINT', () => {
+    process.on("SIGINT", () => {
       log("Gracefully shutting down...");
       clearInterval(interval);
       xemm.stop(); // Perform any necessary cleanup

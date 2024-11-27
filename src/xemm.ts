@@ -178,14 +178,21 @@ export class Xemm {
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
       for (let i = 0; i < 4; ++i) {
-        if (maxBestAsk - this.tick + i * this.tick - price >= 0.0009) {
+        if (
+          (maxBestAsk - this.tick + i * this.tick - price) / price >=
+          0.0003
+        ) {
           maxIdealPrice = maxBestAsk - this.tick + i * this.tick;
           break;
         }
       }
     } else {
       for (let i = 0; i < 4; ++i) {
-        if (price - (maxBestBid + this.tick - i * this.tick) >= 0.0009) {
+        if (
+          (price - (maxBestBid + this.tick - i * this.tick)) /
+            (maxBestBid + this.tick - i * this.tick) >=
+          0.0003
+        ) {
           maxIdealPrice = maxBestBid + this.tick - i * this.tick;
           break;
         }
@@ -265,7 +272,7 @@ export class Xemm {
 
     // The price border to cancel orders
     const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.0005 : price * 0.9995;
+      this.nowSellingExchange === "MAX" ? price * 1.00013 : price * 0.99987;
 
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
@@ -275,8 +282,8 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.0003
-        : +order.price > borderPrice || maxBestBid - +order.price > 0.0003
+        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.0004
+        : +order.price > borderPrice || maxBestBid - +order.price > 0.0004
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);

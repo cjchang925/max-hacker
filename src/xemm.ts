@@ -80,8 +80,8 @@ export class Xemm {
    * The base crypto for XEMM
    */
   private crypto = {
-    uppercase: "ADA",
-    lowercase: "ada",
+    uppercase: "DOGE",
+    lowercase: "doge",
   };
 
   /**

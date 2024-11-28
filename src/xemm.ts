@@ -283,10 +283,6 @@ export class Xemm {
       return;
     }
 
-    // The price border to cancel orders
-    const borderPrice =
-      this.nowSellingExchange === "MAX" ? price * 1.00013 : price * 0.99987;
-
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
 
@@ -295,8 +291,8 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? +order.price < borderPrice || +order.price - maxBestAsk > 0.0004
-        : +order.price > borderPrice || maxBestBid - +order.price > 0.0004
+        ? (+order.price - price) / price < 0.0001 || +order.price - maxBestAsk > 0.0004
+        : (price - +order.price) / +order.price < 0.0001 || maxBestBid - +order.price > 0.0004
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);

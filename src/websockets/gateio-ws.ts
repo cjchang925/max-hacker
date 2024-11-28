@@ -35,6 +35,16 @@ export class GateioWs {
    */
   private latestFairPrice: number | null = null;
 
+  /**
+   * The balance of crypto
+   */
+  private cryptoBalance: number | null = null;
+
+  /**
+   * The balance of USDT
+   */
+  private usdtBalance: number | null = null;
+
   constructor(crypto: Record<string, string>) {
     this.crypto = crypto;
 
@@ -47,6 +57,8 @@ export class GateioWs {
 
     this.ws.on("open", () => {
       log("Connected to Gate.io WebSocket");
+
+      this.listenToBalanceUpdate();
 
       const time = Math.floor(Date.now() / 1000);
 
@@ -236,7 +248,7 @@ export class GateioWs {
    * Listen to balance update on Gate.io
    * @param callback called when balance is updated
    */
-  public listenToBalanceUpdate = (callback: Function): void => {
+  private listenToBalanceUpdate = (): void => {
     this.ws.on("message", (data: Buffer) => {
       const message: GateioBalanceUpdate = JSON.parse(data.toString());
 
@@ -244,9 +256,17 @@ export class GateioWs {
         return;
       }
 
-      if (callback) {
-        callback(message);
+      const crypto = message.result.find(
+        (item) => item.currency === this.crypto!.uppercase
+      );
+      const usdt = message.result.find((item) => item.currency === "USDT");
+
+      if (!crypto || !usdt) {
+        throw Error("Balances are not provided");
       }
+
+      this.cryptoBalance = parseFloat(crypto.available);
+      this.usdtBalance = parseFloat(usdt.available);
     });
   };
 
@@ -298,10 +318,9 @@ export class GateioWs {
   ): void => {
     if (side === "sell") {
       // Adjust the amount to 5 decimal places
-      const cryptoAmount = (
-        Math.floor(parseFloat(amount) * 100) / 100
-      ).toString();
-      this.placeMarketOrder(side, cryptoAmount);
+      const cryptoAmount = Math.floor(parseFloat(amount) * 100) / 100;
+      const adjustedCryptoAmount = Math.min(cryptoAmount, this.cryptoBalance!);
+      this.placeMarketOrder(side, adjustedCryptoAmount.toString());
       return;
     }
 
@@ -312,10 +331,10 @@ export class GateioWs {
       return;
     }
 
-    const usdtAmount = (
-      Math.floor(parseFloat(amount) * cryptoToUsdt * 100) / 100
-    ).toString();
-    this.placeMarketOrder(side, usdtAmount);
+    const usdtAmount =
+      Math.floor(parseFloat(amount) * cryptoToUsdt * 100) / 100;
+    const adjustedUsdtAmount = Math.min(usdtAmount, this.usdtBalance!);
+    this.placeMarketOrder(side, adjustedUsdtAmount.toString());
   };
 
   /**

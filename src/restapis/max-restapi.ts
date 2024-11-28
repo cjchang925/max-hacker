@@ -241,6 +241,66 @@ export class MaxRestApi {
   };
 
   /**
+   * Check if open orders exist
+   * @returns true if open orders exist
+   */
+  public checkIfOpenOrdersExist = async (): Promise<Boolean> => {
+    const nonce = Date.now();
+
+    if (!this.crypto) {
+      throw new Error("Crypto is not set");
+    }
+
+    const request = {
+      market: `${this.crypto.lowercase}usdt`,
+      nonce,
+    };
+
+    const paramsToBeSigned = {
+      ...request,
+      path: restapiUrl.max.openOrders,
+    };
+
+    const payload = Buffer.from(JSON.stringify(paramsToBeSigned)).toString(
+      "base64"
+    );
+
+    const signature = createHmac("sha256", this.secretKey)
+      .update(payload)
+      .digest("hex");
+
+    try {
+      const response = await fetch(
+        `${restapiUrl.max.baseUrl}${restapiUrl.max.openOrders}?${qs.stringify(
+          request,
+          {
+            arrayFormat: "brackets",
+          }
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "X-MAX-ACCESSKEY": this.accessKey,
+            "X-MAX-PAYLOAD": payload,
+            "X-MAX-SIGNATURE": signature,
+          },
+        }
+      );
+
+      if (response.status >= 300) {
+        console.log(response);
+        throw new Error(`Failed to get open orders on MAX`);
+      }
+
+      const orders = await response.json();
+
+      return orders.length > 0;
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  };
+
+  /**
    * Get trades of an order
    * @param orderId order ID
    * @returns trades of the order

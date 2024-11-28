@@ -108,6 +108,13 @@ export class Xemm {
   public kicksOff = async (): Promise<void> => {
     log("Kickoff");
 
+    if (await this.maxRestApi.checkIfOpenOrdersExist()) {
+      log("Open orders exist, clear them");
+      await this.maxRestApi.clearOrders("sell");
+      await this.maxRestApi.clearOrders("buy");
+      await sleep(3000);
+    }
+
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
     this.maxWs.listenToOrderUpdate(this.maxOrderUpdateCb);
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);

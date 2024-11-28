@@ -163,14 +163,15 @@ export class Xemm {
 
   /**
    * Executed after receiving the price update from Gate.io
-   * @param price Gate.io current price
+   * @param fairPrice Gate.io current price
+   * @param price Gate.io best bid price
    */
-  private gateioPriceUpdateCb = async (price: number): Promise<void> => {
+  private gateioPriceUpdateCb = async (fairPrice: number, price: number): Promise<void> => {
     if (this.maxState !== MaxState.DEFAULT) {
       return;
     }
 
-    this.processActiveOrders(price);
+    this.processActiveOrders(fairPrice);
 
     if (this.maxActiveOrders.length || this.maxState !== MaxState.DEFAULT) {
       return;

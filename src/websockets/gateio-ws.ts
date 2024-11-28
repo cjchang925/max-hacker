@@ -199,7 +199,7 @@ export class GateioWs {
       this.latestFairPrice = fairPrice;
 
       if (callback) {
-        callback(fairPrice);
+        callback(fairPrice, this.bestBid);
       }
     });
   };

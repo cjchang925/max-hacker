@@ -35,16 +35,6 @@ export class GateioWs {
    */
   private latestFairPrice: number | null = null;
 
-  /**
-   * The balance of crypto
-   */
-  private cryptoBalance: number | null = null;
-
-  /**
-   * The balance of USDT
-   */
-  private usdtBalance: number | null = null;
-
   constructor(crypto: Record<string, string>) {
     this.crypto = crypto;
 
@@ -58,13 +48,7 @@ export class GateioWs {
     this.ws.on("open", () => {
       log("Connected to Gate.io WebSocket");
 
-      this.listenToBalanceUpdate();
-
       const time = Math.floor(Date.now() / 1000);
-
-      // Ping the server
-      this.ws.send(JSON.stringify({ time, channel: "spot.ping" }));
-
       const apiKey = process.env.GATE_IO_API_KEY;
       const secret = process.env.GATE_IO_SECRET;
 
@@ -114,14 +98,10 @@ export class GateioWs {
         })
       );
 
-      // Subscribe to balance updates
-      this.ws.send(
-        JSON.stringify({
-          time,
-          channel: "spot.balances",
-          event: "subscribe",
-        })
-      );
+      setInterval(() => {
+        const time = Math.floor(Date.now() / 1000);
+        this.ws.send(JSON.stringify({ time, channel: "spot.ping" }));
+      }, 10000);
     });
   }
 
@@ -245,32 +225,6 @@ export class GateioWs {
   };
 
   /**
-   * Listen to balance update on Gate.io
-   * @param callback called when balance is updated
-   */
-  private listenToBalanceUpdate = (): void => {
-    this.ws.on("message", (data: Buffer) => {
-      const message: GateioBalanceUpdate = JSON.parse(data.toString());
-
-      if (message.channel !== "spot.balances" || message.event !== "update") {
-        return;
-      }
-
-      const crypto = message.result.find(
-        (item) => item.currency === this.crypto!.uppercase
-      );
-      const usdt = message.result.find((item) => item.currency === "USDT");
-
-      if (!crypto || !usdt) {
-        throw Error("Balances are not provided");
-      }
-
-      this.cryptoBalance = parseFloat(crypto.available);
-      this.usdtBalance = parseFloat(usdt.available);
-    });
-  };
-
-  /**
    * Place a market order with adjusted amount
    * @param side "buy" or "sell"
    * @param amount amount of order
@@ -314,12 +268,16 @@ export class GateioWs {
    */
   public adjustAndPlaceMarketOrder = (
     side: "buy" | "sell",
-    amount: string
+    amount: string,
+    gateioBalances: Record<string, number>
   ): void => {
     if (side === "sell") {
       // Adjust the amount to 5 decimal places
       const cryptoAmount = Math.floor(parseFloat(amount) * 100) / 100;
-      const adjustedCryptoAmount = Math.min(cryptoAmount, this.cryptoBalance!);
+      const adjustedCryptoAmount = Math.min(
+        cryptoAmount,
+        gateioBalances[this.crypto!.uppercase]
+      );
       this.placeMarketOrder(side, adjustedCryptoAmount.toString());
       return;
     }
@@ -333,7 +291,7 @@ export class GateioWs {
 
     const usdtAmount =
       Math.floor(parseFloat(amount) * cryptoToUsdt * 100) / 100;
-    const adjustedUsdtAmount = Math.min(usdtAmount, this.usdtBalance!);
+    const adjustedUsdtAmount = Math.min(usdtAmount, gateioBalances.USDT);
     this.placeMarketOrder(side, adjustedUsdtAmount.toString());
   };
 

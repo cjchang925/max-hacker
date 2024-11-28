@@ -470,7 +470,7 @@ export class Xemm {
       const direction = trade.sd === "bid" ? "sell" : "buy";
 
       // Hedge on Gate.io with the same volume
-      this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v);
+      this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v, this.gateioBalances);
 
       // Modify the remaining volume of the active order
       const orderIndex = this.maxActiveOrders.findIndex(

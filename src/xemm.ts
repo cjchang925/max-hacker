@@ -14,6 +14,11 @@ import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
 
 /**
+ * Whether the program should restart now
+ */
+let shouldRestart = false;
+
+/**
  * Execute XEMM strategy on Gate.io and MAX
  */
 export class Xemm {
@@ -306,6 +311,11 @@ export class Xemm {
 
       this.maxActiveOrders.length = 0;
 
+      if (shouldRestart) {
+        shouldRestart = false;
+        await this.restart(false);
+      }
+
       setTimeout(async () => {
         if (this.cancelledOrderIds.has(order.id)) {
           log(
@@ -530,8 +540,8 @@ const main = () => {
     xemm.kicksOff();
 
     const interval = setInterval(() => {
-      log("2 hours limit hit, restart XEMM strategy");
-      xemm.restart(false);
+      log("2 hours limit hit, ask XEMM strategy to restart");
+      shouldRestart = true;
     }, twoHours);
 
     // Listen for the SIGINT signal (Ctrl+C)

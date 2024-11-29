@@ -128,6 +128,9 @@ export class Xemm {
     // Whenever a trade is filled on Gate.io, renew the balances.
     this.gateioWs.listenToPlacedOrderUpdate(() => {
       this.gateioRestApi.getBalances(this.updateGateioBalances);
+      setTimeout(() => {
+        this.maxState = MaxState.DEFAULT;
+      }, 1000);
     });
 
     // Wait 3 seconds for establishing connections
@@ -193,7 +196,7 @@ export class Xemm {
       for (let i = 0; i < 4; ++i) {
         if (
           (maxBestAsk - this.tick + i * this.tick - price) / price >=
-          0.0003
+          0.0004
         ) {
           maxIdealPrice = maxBestAsk - this.tick + i * this.tick;
           break;
@@ -204,7 +207,7 @@ export class Xemm {
         if (
           (price - (maxBestBid + this.tick - i * this.tick)) /
             (maxBestBid + this.tick - i * this.tick) >=
-          0.0003
+          0.0004
         ) {
           maxIdealPrice = maxBestBid + this.tick - i * this.tick;
           break;
@@ -291,8 +294,8 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? (+order.price - price) / price < 0.0001 || +order.price - maxBestAsk > 0.0004
-        : (price - +order.price) / +order.price < 0.0001 || maxBestBid - +order.price > 0.0004
+        ? (+order.price - price) / price < 0.0002 || +order.price - maxBestAsk > 0.0004
+        : (price - +order.price) / +order.price < 0.0002 || maxBestBid - +order.price > 0.0004
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);
@@ -466,6 +469,8 @@ export class Xemm {
   public maxTradeUpdateCb = (tradeMessage: MaxTradeMessage): void => {
     log(`Received trade message from MAX`);
 
+    this.maxState = MaxState.PLACING_ORDER;
+
     for (const trade of tradeMessage.t) {
       const side = trade.sd === "bid" ? "buy" : "sell";
 
@@ -486,11 +491,6 @@ export class Xemm {
 
       if (orderIndex === -1) {
         log(`Order ${trade.oi} is not found, continue.`);
-
-        if (this.maxState !== MaxState.SLEEP) {
-          this.maxState = MaxState.DEFAULT;
-        }
-
         continue;
       }
 
@@ -508,10 +508,6 @@ export class Xemm {
       this.maxActiveOrders.splice(orderIndex, 1);
 
       this.lastOrderPrice = null;
-
-      if (this.maxState !== MaxState.SLEEP) {
-        this.maxState = MaxState.DEFAULT;
-      }
     }
   };
 

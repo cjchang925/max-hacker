@@ -179,7 +179,7 @@ export class Xemm {
       return;
     }
 
-    this.processActiveOrders(fairPrice);
+    this.processActiveOrders(fairPrice, price);
 
     if (this.maxActiveOrders.length || this.maxState !== MaxState.DEFAULT) {
       return;
@@ -279,9 +279,10 @@ export class Xemm {
    * Process active orders on MAX,
    * cancel orders with price difference less than 0.07%
    * or has been far from the best price on order book.
-   * @param price Gate.io current price
+   * @param fairPrice Gate.io fair price
+   * @param actualPrice Gate.io current price
    */
-  private processActiveOrders = async (price: number) => {
+  private processActiveOrders = async (fairPrice: number, actualPrice: number) => {
     if (!this.maxActiveOrders.length) {
       return;
     }
@@ -294,8 +295,8 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? (+order.price - price) / price < 0.0002 || +order.price - maxBestAsk > 0.0004
-        : (price - +order.price) / +order.price < 0.0002 || maxBestBid - +order.price > 0.0004
+        ? (+order.price - fairPrice) / fairPrice < 0.0002 || (+order.price - actualPrice) / actualPrice < 0.0002 || +order.price - maxBestAsk > 0.0004
+        : (fairPrice - +order.price) / +order.price < 0.0002 || (actualPrice - +order.price) / +order.price < 0.0002 || maxBestBid - +order.price > 0.0004
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);

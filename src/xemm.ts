@@ -522,24 +522,21 @@ export class Xemm {
 }
 
 const main = () => {
+  const twoMinutes = 2 * 60 * 1000;
+
+  setTimeout(() => {
+    log("2 minutes limit hit, suggest XEMM strategy to restart");
+    suggestedRestart = true;
+  }, twoMinutes);
+
   while (true) {
-    const xemm = new Xemm();
-    xemm.kicksOff();
-    const twoMinutes = 2 * 60 * 1000;
-
-    setTimeout(() => {
-      log("2 minutes limit hit, suggest XEMM strategy to restart");
-      suggestedRestart = true;
-    }, twoMinutes);
-
-    while (true) {
-      if (shouldRestart) {
-        log("Main thread receives restart signal, restart XEMM strategy");
-        shouldRestart = false;
-        break;
-      } else {
-        sleep(5000);
-      }
+    if (shouldRestart) {
+      log("Main thread receives start signal...");
+      shouldRestart = false;
+      const xemm = new Xemm();
+      xemm.kicksOff();
+    } else {
+      sleep(5000);
     }
   }
 };

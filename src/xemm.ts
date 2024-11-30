@@ -12,6 +12,7 @@ import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
+import { exec } from "child_process";
 
 /**
  * Whether the program should restart now
@@ -174,7 +175,10 @@ export class Xemm {
    * @param fairPrice Gate.io current price
    * @param price Gate.io best bid price
    */
-  private gateioPriceUpdateCb = async (fairPrice: number, price: number): Promise<void> => {
+  private gateioPriceUpdateCb = async (
+    fairPrice: number,
+    price: number
+  ): Promise<void> => {
     if (this.maxState !== MaxState.DEFAULT) {
       return;
     }
@@ -243,7 +247,7 @@ export class Xemm {
 
     if (amount < 28) {
       log(`${this.crypto.uppercase} balance is not enough to place an order`);
-      await this.restart(true);
+      await this.restart();
       return;
     }
 
@@ -266,12 +270,12 @@ export class Xemm {
           log(
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
-          this.restart(false);
+          this.restart();
         }
       }, 5000);
     } catch (error: any) {
       log(`Failed to place new order, error message: ${error.message}`);
-      await this.restart(false);
+      await this.restart();
     }
   };
 
@@ -282,7 +286,10 @@ export class Xemm {
    * @param fairPrice Gate.io fair price
    * @param actualPrice Gate.io current price
    */
-  private processActiveOrders = async (fairPrice: number, actualPrice: number) => {
+  private processActiveOrders = async (
+    fairPrice: number,
+    actualPrice: number
+  ) => {
     if (!this.maxActiveOrders.length) {
       return;
     }
@@ -295,8 +302,12 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? (+order.price - fairPrice) / fairPrice < 0.0002 || (+order.price - actualPrice) / actualPrice < 0.0002 || +order.price - maxBestAsk > 0.0004
-        : (fairPrice - +order.price) / +order.price < 0.0002 || (actualPrice - +order.price) / +order.price < 0.0002 || maxBestBid - +order.price > 0.0004
+        ? (+order.price - fairPrice) / fairPrice < 0.0002 ||
+          (+order.price - actualPrice) / actualPrice < 0.0002 ||
+          +order.price - maxBestAsk > 0.0004
+        : (fairPrice - +order.price) / +order.price < 0.0002 ||
+          (actualPrice - +order.price) / +order.price < 0.0002 ||
+          maxBestBid - +order.price > 0.0004
     ) {
       this.maxState = MaxState.CANCELLING_ORDER;
       this.cancelledOrderIds.add(order.id);
@@ -305,7 +316,7 @@ export class Xemm {
         this.maxRestApi.cancelOrder(order.id);
       } catch (error: any) {
         log(`Failed to cancel orders, error message: ${error.message}`);
-        await this.restart(false);
+        await this.restart();
         return;
       }
 
@@ -313,7 +324,7 @@ export class Xemm {
 
       if (shouldRestart) {
         shouldRestart = false;
-        await this.restart(false);
+        await this.restart();
       }
 
       setTimeout(async () => {
@@ -321,7 +332,7 @@ export class Xemm {
           log(
             "Did not receive the response of cancelling orders, restart XEMM strategy"
           );
-          await this.restart(false);
+          await this.restart();
         }
       }, 5000);
     }
@@ -377,9 +388,8 @@ export class Xemm {
 
   /**
    * Restart the strategy
-   * @param reverse Whether to reverse the direction
    */
-  public restart = async (reverse: boolean): Promise<void> => {
+  public restart = async (): Promise<void> => {
     log("Get restart signal, closing...");
 
     this.maxState = MaxState.SLEEP;
@@ -402,17 +412,18 @@ export class Xemm {
     log("Finish closing, waiting 3 seconds...");
     await sleep(3000);
     log("Restarting...");
+    exec("./restart.sh");
 
-    this.maxWs = new MaxWs(this.crypto);
-    this.gateioWs = new GateioWs(this.crypto);
+    // this.maxWs = new MaxWs(this.crypto);
+    // this.gateioWs = new GateioWs(this.crypto);
 
-    if (reverse) {
-      this.nowSellingExchange =
-        this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
-    }
+    // if (reverse) {
+    //   this.nowSellingExchange =
+    //     this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
+    // }
 
-    this.maxState = MaxState.DEFAULT;
-    this.kicksOff();
+    // this.maxState = MaxState.DEFAULT;
+    // this.kicksOff();
   };
 
   /**
@@ -483,7 +494,11 @@ export class Xemm {
       const direction = trade.sd === "bid" ? "sell" : "buy";
 
       // Hedge on Gate.io with the same volume
-      this.gateioWs.adjustAndPlaceMarketOrder(direction, trade.v, this.gateioBalances);
+      this.gateioWs.adjustAndPlaceMarketOrder(
+        direction,
+        trade.v,
+        this.gateioBalances
+      );
 
       // Modify the remaining volume of the active order
       const orderIndex = this.maxActiveOrders.findIndex(
@@ -528,24 +543,17 @@ export class Xemm {
 const main = () => {
   let xemm = new Xemm();
   const twoHours = 2 * 60 * 60 * 1000;
+  const twoMinutes = 2 * 60 * 1000;
 
   try {
     xemm.kicksOff();
 
-    const interval = setInterval(() => {
-      log("2 hours limit hit, ask XEMM strategy to restart");
+    setInterval(() => {
+      log("2 minutes limit hit, ask XEMM strategy to restart");
       shouldRestart = true;
-    }, twoHours);
-
-    // Listen for the SIGINT signal (Ctrl+C)
-    process.on("SIGINT", () => {
-      log("Gracefully shutting down...");
-      clearInterval(interval);
-      xemm.stop(); // Perform any necessary cleanup
-      process.exit(0); // Exit the process
-    });
+    }, twoMinutes);
   } catch (error: any) {
-    xemm.stop();
+    xemm.restart();
   }
 };
 

@@ -12,6 +12,7 @@ import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
+import { BinanceStreamWs } from "./websockets/binance-stream-ws";
 
 /**
  * Whether the program should restart now
@@ -41,6 +42,11 @@ export class Xemm {
    * MAX WebSocket instance
    */
   private maxWs: MaxWs;
+
+  /**
+   * Binance WebSocket instance
+   */
+  private binanceWs: BinanceStreamWs;
 
   /**
    * MAX Rest API instance
@@ -108,6 +114,8 @@ export class Xemm {
 
     this.gateioWs = new GateioWs(this.crypto);
 
+    this.binanceWs = new BinanceStreamWs(this.crypto);
+
     this.gateioRestApi = new GateioRestApi();
     this.gateioRestApi.getBalances(this.updateGateioBalances);
   }
@@ -138,6 +146,8 @@ export class Xemm {
       }, 1000);
     });
 
+    this.binanceWs.connect();
+
     // Wait 3 seconds for establishing connections
     await sleep(3000);
 
@@ -145,6 +155,7 @@ export class Xemm {
 
     this.determineDirection();
     this.gateioWs.listenToOrderBookUpdate(this.gateioPriceUpdateCb);
+    this.binanceWs.listenToLatestPrices(this.binanceTradeUpdateCb);
   };
 
   /**
@@ -284,6 +295,23 @@ export class Xemm {
   };
 
   /**
+   * After receiving the price update from Binance, update the active orders on MAX
+   * @param price Binance current price
+   */
+  private binanceTradeUpdateCb = async (price: number): Promise<void> => {
+    const order = this.maxActiveOrders[0];
+
+    // Cancel orders with risky price difference
+    if (
+      this.nowSellingExchange === "MAX"
+        ? (+order.price - price) / price < 0.0002
+        : (price - +order.price) / +order.price < 0.0002
+    ) {
+      await this.cancelAnOrder(order);
+    }
+  };
+
+  /**
    * Process active orders on MAX,
    * cancel orders with price difference less than 0.07%
    * or has been far from the best price on order book.
@@ -313,33 +341,41 @@ export class Xemm {
           (actualPrice - +order.price) / +order.price < 0.0002 ||
           maxBestBid - +order.price > 0.0004
     ) {
-      this.maxState = MaxState.CANCELLING_ORDER;
-      this.cancelledOrderIds.add(order.id);
-
-      try {
-        this.maxRestApi.cancelOrder(order.id);
-      } catch (error: any) {
-        log(`Failed to cancel orders, error message: ${error.message}`);
-        await this.restart();
-        return;
-      }
-
-      this.maxActiveOrders.length = 0;
-
-      if (suggestedRestart) {
-        suggestedRestart = false;
-        await this.restart();
-      }
-
-      setTimeout(async () => {
-        if (this.cancelledOrderIds.has(order.id)) {
-          log(
-            "Did not receive the response of cancelling orders, restart XEMM strategy"
-          );
-          await this.restart();
-        }
-      }, 5000);
+      await this.cancelAnOrder(order);
     }
+  };
+
+  /**
+   * Try to cancel an order on MAX
+   * @param order the order to be cancelled
+   */
+  private cancelAnOrder = async (order: MaxOrder) => {
+    this.maxState = MaxState.CANCELLING_ORDER;
+    this.cancelledOrderIds.add(order.id);
+
+    try {
+      this.maxRestApi.cancelOrder(order.id);
+    } catch (error: any) {
+      log(`Failed to cancel orders, error message: ${error.message}`);
+      await this.restart();
+      return;
+    }
+
+    this.maxActiveOrders.length = 0;
+
+    if (suggestedRestart) {
+      suggestedRestart = false;
+      await this.restart();
+    }
+
+    setTimeout(async () => {
+      if (this.cancelledOrderIds.has(order.id)) {
+        log(
+          "Did not receive the response of cancelling orders, restart XEMM strategy"
+        );
+        await this.restart();
+      }
+    }, 5000);
   };
 
   /**
@@ -412,6 +448,7 @@ export class Xemm {
     this.lastOrderPrice = null;
     this.maxWs.close();
     this.gateioWs.close();
+    this.binanceWs.close();
 
     log("Finish closing, waiting 3 seconds...");
     await sleep(3000);
@@ -521,12 +558,12 @@ export class Xemm {
 }
 
 const main = async () => {
-  const twoMinutes = 2 * 60 * 1000;
+  const twoHours = 1000 * 60 * 60 * 2;
 
-  setTimeout(() => {
-    log("2 minutes limit hit, suggest XEMM strategy to restart");
+  setInterval(() => {
+    log("2 hours limit hit, suggest XEMM strategy to restart");
     suggestedRestart = true;
-  }, twoMinutes);
+  }, twoHours);
 
   while (true) {
     if (shouldRestart) {

@@ -27,7 +27,7 @@ export class BinanceStreamWs {
   public connect = (): void => {
     // 建立 WebSocket 連線
     this.ws.on("open", () => {
-      log("已連上 Binance Stream WebSocket");
+      log("Connected to Binance Stream WebSocket");
     });
 
     // Ping-Pong 以維持連線
@@ -49,5 +49,12 @@ export class BinanceStreamWs {
         callback(latestTradePrice);
       }
     });
+  };
+
+  /**
+   * Close the WebSocket connection
+   */
+  public close = (): void => {
+    this.ws.close();
   };
 }

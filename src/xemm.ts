@@ -13,6 +13,7 @@ import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
 import { BinanceStreamWs } from "./websockets/binance-stream-ws";
+import { parseJsonSourceFileConfigFileContent } from "typescript";
 
 /**
  * Whether the program should restart now
@@ -91,6 +92,11 @@ export class Xemm {
    * The ID of cancelled orders
    */
   private cancelledOrderIds = new Set<number>();
+
+  /**
+   * The latest price on Binance
+   */
+  private binanceLatestPrice: number | null = null;
 
   /**
    * The base crypto for XEMM
@@ -210,12 +216,18 @@ export class Xemm {
     const maxBestBid = this.maxWs.getBestBid();
     const maxBestAsk = this.maxWs.getBestAsk();
 
+    if (!this.binanceLatestPrice) {
+      return;
+    }
+
     // Check whether placing order at the best price on MAX is profitable.
     if (this.nowSellingExchange === "MAX") {
       for (let i = 0; i < 4; ++i) {
         if (
-          (maxBestAsk - this.tick + i * this.tick - price) / price >=
-          0.0004
+          (maxBestAsk - this.tick + i * this.tick - price) / price >= 0.0004 &&
+          (maxBestAsk - this.tick + i * this.tick - this.binanceLatestPrice) /
+            this.binanceLatestPrice >=
+            0.0004
         ) {
           maxIdealPrice = maxBestAsk - this.tick + i * this.tick;
           break;
@@ -226,7 +238,10 @@ export class Xemm {
         if (
           (price - (maxBestBid + this.tick - i * this.tick)) /
             (maxBestBid + this.tick - i * this.tick) >=
-          0.0004
+            0.0004 &&
+          (this.binanceLatestPrice - (maxBestBid + this.tick - i * this.tick)) /
+            (maxBestBid + this.tick - i * this.tick) >=
+            0.0004
         ) {
           maxIdealPrice = maxBestBid + this.tick - i * this.tick;
           break;
@@ -299,6 +314,8 @@ export class Xemm {
    * @param price Binance current price
    */
   private binanceTradeUpdateCb = async (price: number): Promise<void> => {
+    this.binanceLatestPrice = price;
+
     if (!this.maxActiveOrders.length || this.maxState !== MaxState.DEFAULT) {
       return;
     }

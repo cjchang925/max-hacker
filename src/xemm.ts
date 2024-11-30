@@ -299,6 +299,10 @@ export class Xemm {
    * @param price Binance current price
    */
   private binanceTradeUpdateCb = async (price: number): Promise<void> => {
+    if (!this.maxActiveOrders.length || this.maxState !== MaxState.DEFAULT) {
+      return;
+    }
+
     const order = this.maxActiveOrders[0];
 
     // Cancel orders with risky price difference

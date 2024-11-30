@@ -20,6 +20,11 @@ import { exec } from "child_process";
 let shouldRestart = false;
 
 /**
+ * Whether the program should restart after cancelling orders
+ */
+let suggestedRestart = false;
+
+/**
  * Execute XEMM strategy on Gate.io and MAX
  */
 export class Xemm {
@@ -322,8 +327,8 @@ export class Xemm {
 
       this.maxActiveOrders.length = 0;
 
-      if (shouldRestart) {
-        shouldRestart = false;
+      if (suggestedRestart) {
+        suggestedRestart = false;
         await this.restart();
       }
 
@@ -411,19 +416,7 @@ export class Xemm {
 
     log("Finish closing, waiting 3 seconds...");
     await sleep(3000);
-    log("Restarting...");
-    exec("./restart.sh");
-
-    // this.maxWs = new MaxWs(this.crypto);
-    // this.gateioWs = new GateioWs(this.crypto);
-
-    // if (reverse) {
-    //   this.nowSellingExchange =
-    //     this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
-    // }
-
-    // this.maxState = MaxState.DEFAULT;
-    // this.kicksOff();
+    shouldRestart = true;
   };
 
   /**
@@ -526,34 +519,28 @@ export class Xemm {
       this.lastOrderPrice = null;
     }
   };
-
-  /**
-   * Stop XEMM strategy
-   */
-  public stop = async (): Promise<void> => {
-    log("Stop XEMM strategy");
-    this.maxState = MaxState.SLEEP;
-    const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
-    await this.maxRestApi.clearOrders(direction);
-    this.maxWs.close();
-    this.gateioWs.close();
-  };
 }
 
 const main = () => {
-  let xemm = new Xemm();
-  const twoHours = 2 * 60 * 60 * 1000;
-  const twoMinutes = 2 * 60 * 1000;
-
-  try {
+  while (true) {
+    const xemm = new Xemm();
     xemm.kicksOff();
+    const twoMinutes = 2 * 60 * 1000;
 
-    setInterval(() => {
-      log("2 minutes limit hit, ask XEMM strategy to restart");
-      shouldRestart = true;
+    setTimeout(() => {
+      log("2 minutes limit hit, suggest XEMM strategy to restart");
+      suggestedRestart = true;
     }, twoMinutes);
-  } catch (error: any) {
-    xemm.restart();
+
+    while (true) {
+      if (shouldRestart) {
+        log("Main thread receives restart signal, restart XEMM strategy");
+        shouldRestart = false;
+        break;
+      } else {
+        sleep(5000);
+      }
+    }
   }
 };
 

@@ -12,12 +12,11 @@ import { MaxAccountMessage } from "./interfaces/max-account-message";
 import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
-import { exec } from "child_process";
 
 /**
  * Whether the program should restart now
  */
-let shouldRestart = false;
+let shouldRestart = true;
 
 /**
  * Whether the program should restart after cancelling orders
@@ -521,7 +520,7 @@ export class Xemm {
   };
 }
 
-const main = () => {
+const main = async () => {
   const twoMinutes = 2 * 60 * 1000;
 
   setTimeout(() => {
@@ -536,7 +535,7 @@ const main = () => {
       const xemm = new Xemm();
       xemm.kicksOff();
     } else {
-      sleep(5000);
+      await sleep(5000);
     }
   }
 };

@@ -69,8 +69,8 @@ export class MaxWs {
 
     this.ws.on("open", () => {
       log("Connected to MAX WebSocket");
-      this.authenticate();
-      this.subscribeOrderBook();
+      // this.authenticate();
+      // this.subscribeOrderBook();
 
       // Ping-Pong to keep the connection alive
       setInterval(() => {
@@ -170,7 +170,7 @@ export class MaxWs {
   /**
    * Authenticate the connection to MAX WebSocket
    */
-  private authenticate = () => {
+  public authenticate = () => {
     const timestamp = Date.now();
     const hmac = crypto.createHmac("sha256", this.secretKey);
     const signature = hmac.update(timestamp.toString()).digest("hex");
@@ -190,7 +190,7 @@ export class MaxWs {
   /**
    * Subscribe to the order book on MAX
    */
-  private subscribeOrderBook = (): void => {
+  public subscribeOrderBook = (): void => {
     if (!this.crypto) {
       throw new Error("Crypto is not set");
     }

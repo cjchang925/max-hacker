@@ -149,6 +149,9 @@ export class Xemm {
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
     this.maxWs.listenToGeneralTradeUpdate(this.maxGeneralTradeUpdateCb);
 
+    this.maxWs.authenticate();
+    this.maxWs.subscribeOrderBook();
+
     // Whenever a trade is filled on Gate.io, renew the balances.
     this.gateioWs.listenToPlacedOrderUpdate(() => {
       this.gateioRestApi.getBalances(this.updateGateioBalances);

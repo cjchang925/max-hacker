@@ -13,7 +13,6 @@ import { MaxOrderMessage } from "./interfaces/max-order-message";
 import { MaxTradeMessage } from "./interfaces/max-trade-message";
 import { MaxSocketMessage } from "./interfaces/max-socket-message";
 import { BinanceStreamWs } from "./websockets/binance-stream-ws";
-import { parseJsonSourceFileConfigFileContent } from "typescript";
 
 /**
  * Whether the program should restart now
@@ -137,6 +136,12 @@ export class Xemm {
       await this.maxRestApi.clearOrders("sell");
       await this.maxRestApi.clearOrders("buy");
       await sleep(3000);
+      log("After clearing orders, restart again");
+      this.maxWs.close();
+      this.gateioWs.close();
+      this.binanceWs.close();
+      shouldRestart = true;
+      return;
     }
 
     this.maxWs.listenToAccountUpdate(this.maxAccountUpdateCb);
@@ -225,9 +230,7 @@ export class Xemm {
       for (let i = 0; i < 4; ++i) {
         if (
           (maxBestAsk - this.tick + i * this.tick - price) / price >= 0.0004 &&
-          (maxBestAsk - this.tick + i * this.tick - this.binanceLatestPrice) /
-            this.binanceLatestPrice >=
-            0.0004
+          maxBestAsk - this.tick + i * this.tick - this.binanceLatestPrice >= 0
         ) {
           maxIdealPrice = maxBestAsk - this.tick + i * this.tick;
           break;
@@ -239,9 +242,7 @@ export class Xemm {
           (price - (maxBestBid + this.tick - i * this.tick)) /
             (maxBestBid + this.tick - i * this.tick) >=
             0.0004 &&
-          (this.binanceLatestPrice - (maxBestBid + this.tick - i * this.tick)) /
-            (maxBestBid + this.tick - i * this.tick) >=
-            0.0004
+          this.binanceLatestPrice - (maxBestBid + this.tick - i * this.tick) >= 0
         ) {
           maxIdealPrice = maxBestBid + this.tick - i * this.tick;
           break;
@@ -325,8 +326,8 @@ export class Xemm {
     // Cancel orders with risky price difference
     if (
       this.nowSellingExchange === "MAX"
-        ? (+order.price - price) / price < 0.0002
-        : (price - +order.price) / +order.price < 0.0002
+        ? (+order.price - price) / price < 0
+        : (price - +order.price) / +order.price < 0
     ) {
       await this.cancelAnOrder(order);
     }

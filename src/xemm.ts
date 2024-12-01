@@ -149,6 +149,8 @@ export class Xemm {
     this.maxWs.listenToTradeUpdate(this.maxTradeUpdateCb);
     this.maxWs.listenToGeneralTradeUpdate(this.maxGeneralTradeUpdateCb);
 
+    await sleep(3000);
+
     this.maxWs.authenticate();
     this.maxWs.subscribeOrderBook();
 
@@ -306,7 +308,7 @@ export class Xemm {
           );
           this.restart();
         }
-      }, 5000);
+      }, 3000);
     } catch (error: any) {
       log(`Failed to place new order, error message: ${error.message}`);
       await this.restart();
@@ -458,10 +460,10 @@ export class Xemm {
     log("Get restart signal, closing...");
 
     this.maxState = MaxState.SLEEP;
-    const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
     try {
-      await this.maxRestApi.clearOrders(direction);
+      await this.maxRestApi.clearOrders("sell");
+      await this.maxRestApi.clearOrders("buy");
     } catch (error: any) {
       for (const order of this.maxActiveOrders) {
         this.maxRestApi.cancelOrder(order.id);

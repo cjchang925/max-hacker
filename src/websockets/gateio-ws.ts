@@ -152,7 +152,7 @@ export class GateioWs {
       const [askPrice, askVolume] = orderBook.result.asks[i];
 
       const weightedPrice =
-        (+bidPrice * +bidVolume + +askPrice * +askVolume) /
+        (+bidPrice * +askVolume + +askPrice * +bidVolume) /
         (+bidVolume + +askVolume);
 
       weightedPricesAtEachLevel.push(weightedPrice);

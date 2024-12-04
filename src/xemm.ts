@@ -25,6 +25,16 @@ let shouldRestart = true;
 let suggestedRestart = false;
 
 /**
+ * The ID of placed orders on MAX
+ */
+let placedOrderIds = new Set<number>();
+
+/**
+ * The ID of cancelled orders
+ */
+let cancelledOrderIds = new Set<number>();
+
+/**
  * Execute XEMM strategy on Gate.io and MAX
  */
 export class Xemm {
@@ -86,16 +96,6 @@ export class Xemm {
    * The price of the last order placed on MAX
    */
   private lastOrderPrice: number | null = null;
-
-  /**
-   * The ID of cancelled orders
-   */
-  private cancelledOrderIds = new Set<number>();
-
-  /**
-   * The ID of placed orders on MAX
-   */
-  private placedOrderIds = new Set<number>();
 
   /**
    * The latest price on Binance
@@ -310,17 +310,17 @@ export class Xemm {
         adjustedAmount
       );
 
-      this.placedOrderIds.add(order.id);
+      placedOrderIds.add(order.id);
 
       setTimeout(() => {
         // Check if the order has been placed
-        if (this.placedOrderIds.has(order.id)) {
+        if (placedOrderIds.has(order.id)) {
           log(
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
           this.restart();
         }
-      }, 3000);
+      }, 5000);
     } catch (error: any) {
       log(`Failed to place new order, error message: ${error.message}`);
       await this.restart();
@@ -390,7 +390,7 @@ export class Xemm {
    */
   private cancelAnOrder = async (order: MaxOrder) => {
     this.maxState = MaxState.CANCELLING_ORDER;
-    this.cancelledOrderIds.add(order.id);
+    cancelledOrderIds.add(order.id);
 
     try {
       this.maxRestApi.cancelOrder(order.id);
@@ -408,7 +408,7 @@ export class Xemm {
     }
 
     setTimeout(async () => {
-      if (this.cancelledOrderIds.has(order.id)) {
+      if (cancelledOrderIds.has(order.id)) {
         log(
           "Did not receive the response of cancelling orders, restart XEMM strategy"
         );
@@ -483,7 +483,8 @@ export class Xemm {
     }
 
     this.maxActiveOrders.length = 0;
-    this.cancelledOrderIds.clear();
+    cancelledOrderIds.clear();
+    placedOrderIds.clear();
     this.lastOrderPrice = null;
     this.maxWs.close();
     this.gateioWs.close();
@@ -510,7 +511,7 @@ export class Xemm {
 
         log(`Successfully cancelled order ${id}`);
 
-        this.cancelledOrderIds.delete(id);
+        cancelledOrderIds.delete(id);
         this.lastOrderPrice = null;
 
         if (this.maxState !== MaxState.SLEEP) {
@@ -521,7 +522,7 @@ export class Xemm {
       }
 
       if (order.S === "wait" && +order.v === +order.rv) {
-        this.placedOrderIds.delete(order.i);
+        placedOrderIds.delete(order.i);
 
         // If the order is placed successfully, add it to the active orders list
         this.maxActiveOrders.push({

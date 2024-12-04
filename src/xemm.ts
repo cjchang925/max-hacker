@@ -93,6 +93,11 @@ export class Xemm {
   private cancelledOrderIds = new Set<number>();
 
   /**
+   * The ID of placed orders on MAX
+   */
+  private placedOrderIds = new Set<number>();
+
+  /**
    * The latest price on Binance
    */
   private binanceLatestPrice: number | null = null;
@@ -293,6 +298,11 @@ export class Xemm {
     try {
       const direction = this.nowSellingExchange === "MAX" ? "sell" : "buy";
 
+      // In case the program has to restart.
+      if (this.maxState !== MaxState.PLACING_ORDER) {
+        return;
+      }
+
       const order = await this.maxRestApi.placeOrder(
         "post_only",
         `${maxIdealPrice}`,
@@ -300,9 +310,11 @@ export class Xemm {
         adjustedAmount
       );
 
+      this.placedOrderIds.add(order.id);
+
       setTimeout(() => {
         // Check if the order has been placed
-        if (this.maxState === MaxState.PLACING_ORDER) {
+        if (this.placedOrderIds.has(order.id)) {
           log(
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
@@ -457,9 +469,9 @@ export class Xemm {
    * Restart the strategy
    */
   public restart = async (): Promise<void> => {
-    log("Get restart signal, closing...");
-
     this.maxState = MaxState.SLEEP;
+
+    log("Get restart signal, closing...");
 
     try {
       await this.maxRestApi.clearOrders("sell");
@@ -509,6 +521,8 @@ export class Xemm {
       }
 
       if (order.S === "wait" && +order.v === +order.rv) {
+        this.placedOrderIds.delete(order.i);
+
         // If the order is placed successfully, add it to the active orders list
         this.maxActiveOrders.push({
           id: order.i,
@@ -537,7 +551,7 @@ export class Xemm {
   public maxTradeUpdateCb = (tradeMessage: MaxTradeMessage): void => {
     log(`Received trade message from MAX`);
 
-    this.maxState = MaxState.PLACING_ORDER;
+    this.maxState = MaxState.PLACING_MARKET_ORDER;
 
     for (const trade of tradeMessage.t) {
       const side = trade.sd === "bid" ? "buy" : "sell";

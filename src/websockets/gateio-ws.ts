@@ -3,7 +3,6 @@ import { websocketUrl } from "../environments/websocket-url";
 import { log } from "../utils/log";
 import crypto from "crypto";
 import dotenv from "dotenv";
-import { GateioBalanceUpdate } from "../interfaces/gateio-balance-update";
 import { GateioOrderBook } from "../interfaces/gateio-order-book";
 
 /**
@@ -254,7 +253,7 @@ export class GateioWs {
             account: "spot",
             side,
             amount,
-            time_in_force: "ioc",
+            time_in_force: "fok",
           },
         },
       })
@@ -289,8 +288,7 @@ export class GateioWs {
       return;
     }
 
-    const usdtAmount =
-      Math.floor(parseFloat(amount) * cryptoToUsdt * 100) / 100;
+    const usdtAmount = (parseFloat(amount) * cryptoToUsdt) / 0.99915;
     const adjustedUsdtAmount = Math.min(usdtAmount, gateioBalances.USDT);
     this.placeMarketOrder(side, adjustedUsdtAmount.toString());
   };

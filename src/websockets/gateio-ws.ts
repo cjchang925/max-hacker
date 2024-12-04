@@ -288,7 +288,9 @@ export class GateioWs {
       return;
     }
 
-    const usdtAmount = (parseFloat(amount) * cryptoToUsdt) / 0.99915;
+    const usdtAmount =
+      Math.round(((parseFloat(amount) * cryptoToUsdt) / 0.99915) * 100000) /
+      100000;
     const adjustedUsdtAmount = Math.min(usdtAmount, gateioBalances.USDT);
     this.placeMarketOrder(side, adjustedUsdtAmount.toString());
   };

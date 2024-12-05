@@ -483,9 +483,10 @@ export class Xemm {
 
     log("Get restart signal, closing...");
 
+    const side = this.nowSellingExchange === "MAX" ? "sell" : "buy";
+
     try {
-      await this.maxRestApi.clearOrders("sell");
-      await this.maxRestApi.clearOrders("buy");
+      await this.maxRestApi.clearOrders(side);
     } catch (error: any) {
       for (const order of this.maxActiveOrders) {
         this.maxRestApi.cancelOrder(order.id);
@@ -615,11 +616,15 @@ const main = async () => {
     suggestedRestart = true;
   }, twoHours);
 
+  let xemm: Xemm | null = null;
+
   while (true) {
     if (shouldRestart) {
       log("Main thread receives start signal...");
       shouldRestart = false;
-      const xemm = new Xemm();
+      xemm = null;
+      await sleep(3000);
+      xemm = new Xemm();
       xemm.kicksOff();
     } else {
       await sleep(5000);

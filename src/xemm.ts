@@ -310,13 +310,13 @@ export class Xemm {
         adjustedAmount
       );
 
-      setTimeout(() => {
+      setTimeout(async () => {
         // Check if the order has been placed
         if (!placedOrderIds.has(order.id)) {
           log(
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
-          this.restart();
+          await this.restart();
         }
       }, 5000);
     } catch (error: any) {
@@ -402,6 +402,7 @@ export class Xemm {
     if (suggestedRestart) {
       suggestedRestart = false;
       await this.restart();
+      return;
     }
 
     setTimeout(async () => {
@@ -466,6 +467,10 @@ export class Xemm {
    * Restart the strategy
    */
   public restart = async (): Promise<void> => {
+    if (this.maxState === MaxState.SLEEP) {
+      return;
+    }
+
     this.maxState = MaxState.SLEEP;
 
     log("Get restart signal, closing...");

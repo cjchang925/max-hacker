@@ -310,11 +310,9 @@ export class Xemm {
         adjustedAmount
       );
 
-      placedOrderIds.add(order.id);
-
       setTimeout(() => {
         // Check if the order has been placed
-        if (placedOrderIds.has(order.id)) {
+        if (!placedOrderIds.has(order.id)) {
           log(
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
@@ -390,7 +388,6 @@ export class Xemm {
    */
   private cancelAnOrder = async (order: MaxOrder) => {
     this.maxState = MaxState.CANCELLING_ORDER;
-    cancelledOrderIds.add(order.id);
 
     try {
       this.maxRestApi.cancelOrder(order.id);
@@ -408,7 +405,7 @@ export class Xemm {
     }
 
     setTimeout(async () => {
-      if (cancelledOrderIds.has(order.id)) {
+      if (!cancelledOrderIds.has(order.id)) {
         log(
           "Did not receive the response of cancelling orders, restart XEMM strategy"
         );
@@ -511,7 +508,7 @@ export class Xemm {
 
         log(`Successfully cancelled order ${id}`);
 
-        cancelledOrderIds.delete(id);
+        cancelledOrderIds.add(id);
         this.lastOrderPrice = null;
 
         if (this.maxState !== MaxState.SLEEP) {
@@ -522,7 +519,7 @@ export class Xemm {
       }
 
       if (order.S === "wait" && +order.v === +order.rv) {
-        placedOrderIds.delete(order.i);
+        placedOrderIds.add(order.i);
 
         // If the order is placed successfully, add it to the active orders list
         this.maxActiveOrders.push({

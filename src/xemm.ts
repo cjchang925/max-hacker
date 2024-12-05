@@ -252,7 +252,8 @@ export class Xemm {
           (price - (maxBestBid + this.tick - i * this.tick)) /
             (maxBestBid + this.tick - i * this.tick) >=
             0.0004 &&
-          this.binanceLatestPrice - (maxBestBid + this.tick - i * this.tick) >= 0
+          this.binanceLatestPrice - (maxBestBid + this.tick - i * this.tick) >=
+            0
         ) {
           maxIdealPrice = maxBestBid + this.tick - i * this.tick;
           break;
@@ -288,7 +289,9 @@ export class Xemm {
 
     if (amount < 28) {
       log(`${this.crypto.uppercase} balance is not enough to place an order`);
-      await this.restart();
+      this.nowSellingExchange =
+        this.nowSellingExchange === "MAX" ? "Gate.io" : "MAX";
+      this.maxState = MaxState.DEFAULT;
       return;
     }
 

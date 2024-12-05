@@ -387,6 +387,10 @@ export class Xemm {
    * @param order the order to be cancelled
    */
   private cancelAnOrder = async (order: MaxOrder) => {
+    if (cancelledOrderIds.has(order.id)) {
+      return;
+    }
+
     this.maxState = MaxState.CANCELLING_ORDER;
 
     try {

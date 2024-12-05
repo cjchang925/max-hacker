@@ -317,6 +317,8 @@ export class Xemm {
             `Did not receive the response of placing order ${order.id}, restart XEMM strategy`
           );
           await this.restart();
+        } else {
+          placedOrderIds.delete(order.id);
         }
       }, 5000);
     } catch (error: any) {
@@ -415,6 +417,8 @@ export class Xemm {
           "Did not receive the response of cancelling orders, restart XEMM strategy"
         );
         await this.restart();
+      } else {
+        cancelledOrderIds.delete(order.id);
       }
     }, 5000);
   };
@@ -489,8 +493,6 @@ export class Xemm {
     }
 
     this.maxActiveOrders.length = 0;
-    cancelledOrderIds.clear();
-    placedOrderIds.clear();
     this.lastOrderPrice = null;
     this.maxWs.close();
     this.gateioWs.close();

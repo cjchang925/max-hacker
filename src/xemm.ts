@@ -525,6 +525,7 @@ export class Xemm {
 
         cancelledOrderIds.add(id);
         this.lastOrderPrice = null;
+        this.maxActiveOrders.length = 0;
 
         if (this.maxState !== MaxState.SLEEP) {
           this.maxState = MaxState.DEFAULT;

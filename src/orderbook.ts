@@ -129,10 +129,6 @@ const main = () => {
   max_ws.on("message", async (data: WebSocket.Data) => {
     const message: MaxOrderBookMessage = JSON.parse(data.toString());
 
-    if (records.length > 10) {
-      return;
-    }
-
     if (message.e === "subscribed") {
       return;
     }

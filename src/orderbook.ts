@@ -176,8 +176,6 @@ const main = () => {
     orderBook.a.sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
     orderBook.b.sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
 
-    console.log(orderBook);
-
     // Push into records
     const record: OrderBookRecord = {
       time: new Date(message.T).toISOString(),
@@ -297,6 +295,7 @@ const main = () => {
 
       await writer.close();
       records.length = 0;
+      console.log(`${time}: Wrote 100000 records to parquet`);
     }
   });
 };

@@ -104,6 +104,8 @@ const main = () => {
 
   let records: OrderBookRecord[] = [];
 
+  let lastRecordTime = new Date().getTime();
+
   max_ws.on("open", () => {
     console.log("Connected to MAX WebSocket");
 
@@ -117,7 +119,7 @@ const main = () => {
         {
           channel: "book",
           market: `dogeusdt`,
-          depth: 10,
+          depth: 20,
         },
       ],
       id: `fred`,
@@ -223,7 +225,12 @@ const main = () => {
 
     records.push(record);
 
-    if (records.length === 100000) {
+    const currentTime = new Date().getTime();
+
+    // Write to parquet every 30 minutes
+    if (currentTime - lastRecordTime >= 30 * 60 * 1000) {
+      lastRecordTime = currentTime;
+
       // Write to parquet
       const schema = new parquet.ParquetSchema({
         time: { type: "UTF8" },
@@ -282,7 +289,7 @@ const main = () => {
 
       const writer = await parquet.ParquetWriter.openFile(
         schema,
-        `orderbook-${time}.parquet`
+        `orderbook/orderbook-${time}.parquet`
       );
 
       for (const record of records) {
@@ -291,7 +298,7 @@ const main = () => {
 
       await writer.close();
       records.length = 0;
-      console.log(`${time}: Wrote 100000 records to parquet`);
+      console.log(`${time}: Wrote records to parquet`);
     }
   });
 };

@@ -135,7 +135,7 @@ const main = () => {
 
       const writer = await parquet.ParquetWriter.openFile(
         schema,
-        `trades-${time}.parquet`
+        `trade/trades-${time}.parquet`
       );
 
       for (const record of records) {

@@ -56,6 +56,7 @@ interface TradeRecord {
 const main = () => {
   const max_ws = new WebSocket(websocketUrl.max);
   let records: TradeRecord[] = [];
+  let lastRecordTime = new Date().getTime();
 
   max_ws.on("open", () => {
     console.log("Connected to MAX WebSocket");
@@ -106,7 +107,11 @@ const main = () => {
       records.push(record);
     }
 
-    if (records.length >= 1000) {
+    const currentTime = new Date().getTime();
+
+    if (currentTime - lastRecordTime >= 30 * 60 * 1000) {
+      lastRecordTime = currentTime;
+
       const schema = new parquet.ParquetSchema({
         time: { type: "UTF8" },
         sym: { type: "UTF8" },

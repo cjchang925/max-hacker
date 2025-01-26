@@ -74,6 +74,57 @@ interface OrderBookRecord {
   systimestamp: String;
 }
 
+const writeParquet = async (records: OrderBookRecord[]) => {
+  // Write to parquet
+  const schema = new parquet.ParquetSchema({
+    time: { type: "UTF8" },
+    sym: { type: "UTF8" },
+    timestamp: { type: "INT64" },
+    datetime: { type: "UTF8" },
+    bid0: { type: "DOUBLE" },
+    bid1: { type: "DOUBLE" },
+    bid2: { type: "DOUBLE" },
+    bid3: { type: "DOUBLE" },
+    bid4: { type: "DOUBLE" },
+    bidSize0: { type: "DOUBLE" },
+    bidSize1: { type: "DOUBLE" },
+    bidSize2: { type: "DOUBLE" },
+    bidSize3: { type: "DOUBLE" },
+    bidSize4: { type: "DOUBLE" },
+    ask0: { type: "DOUBLE" },
+    ask1: { type: "DOUBLE" },
+    ask2: { type: "DOUBLE" },
+    ask3: { type: "DOUBLE" },
+    ask4: { type: "DOUBLE" },
+    askSize0: { type: "DOUBLE" },
+    askSize1: { type: "DOUBLE" },
+    askSize2: { type: "DOUBLE" },
+    askSize3: { type: "DOUBLE" },
+    askSize4: { type: "DOUBLE" },
+    systimestamp: { type: "UTF8" },
+  });
+
+  const time = new Date()
+    .toISOString()
+    .replace(/:/g, "-")
+    .replace(/\./g, "-")
+    .replace("T", "-")
+    .replace("Z", "");
+
+  const writer = await parquet.ParquetWriter.openFile(
+    schema,
+    `orderbook/orderbook-${time}.parquet`
+  );
+
+  for (const record of records) {
+    writer.appendRow(record as any);
+  }
+
+  await writer.close();
+  records.length = 0;
+  console.log(`${time}: Wrote 10000 records to parquet`);
+};
+
 const main = () => {
   const max_ws = new WebSocket(websocketUrl.max);
 
@@ -183,57 +234,11 @@ const main = () => {
 
     records.push(record);
 
-
-    // Write to parquet every 1000 rows
-    if (records.length > 1000) {
-      // Write to parquet
-      const schema = new parquet.ParquetSchema({
-        time: { type: "UTF8" },
-        sym: { type: "UTF8" },
-        timestamp: { type: "INT64" },
-        datetime: { type: "UTF8" },
-        bid0: { type: "DOUBLE" },
-        bid1: { type: "DOUBLE" },
-        bid2: { type: "DOUBLE" },
-        bid3: { type: "DOUBLE" },
-        bid4: { type: "DOUBLE" },
-        bidSize0: { type: "DOUBLE" },
-        bidSize1: { type: "DOUBLE" },
-        bidSize2: { type: "DOUBLE" },
-        bidSize3: { type: "DOUBLE" },
-        bidSize4: { type: "DOUBLE" },
-        ask0: { type: "DOUBLE" },
-        ask1: { type: "DOUBLE" },
-        ask2: { type: "DOUBLE" },
-        ask3: { type: "DOUBLE" },
-        ask4: { type: "DOUBLE" },
-        askSize0: { type: "DOUBLE" },
-        askSize1: { type: "DOUBLE" },
-        askSize2: { type: "DOUBLE" },
-        askSize3: { type: "DOUBLE" },
-        askSize4: { type: "DOUBLE" },
-        systimestamp: { type: "UTF8" },
-      });
-
-      const time = new Date()
-        .toISOString()
-        .replace(/:/g, "-")
-        .replace(/\./g, "-")
-        .replace("T", "-")
-        .replace("Z", "");
-
-      const writer = await parquet.ParquetWriter.openFile(
-        schema,
-        `orderbook/orderbook-${time}.parquet`
-      );
-
-      for (const record of records) {
-        writer.appendRow(record as any);
-      }
-
-      await writer.close();
-      records.length = 0;
-      console.log(`${time}: Wrote 1000 records to parquet`);
+    // Write to parquet every 10000 rows
+    if (records.length >= 10000) {
+      const recordsToWrite = records.slice(0, 10000);
+      records.splice(0, 10000);
+      writeParquet(recordsToWrite);
     }
   });
 };
